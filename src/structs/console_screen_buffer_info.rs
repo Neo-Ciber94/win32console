@@ -2,14 +2,26 @@ use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
 use winapi::um::wincontypes::SMALL_RECT;
 use crate::structs::coord::Coord;
 
+/// Represents a [CONSOLE_SCREEN_BUFFER_INFO], which contains information about the
+/// console screen buffer.
+///
+/// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-info-str]
 pub struct ConsoleScreenBufferInfo{
-    pub size: Coord,
+    /// Size of the screen buffer in rows and columns.
+    pub screen_buffer_size: Coord,
+    /// Position of the cursor in the console screen buffer.
     pub cursor_position: Coord,
+    /// The attributes of the characters written in the console screen buffer.
     pub attributes: u16,
-    pub small_rect: SmallRect,
+    /// The rect that contains the console screen buffer.
+    pub window: SmallRect,
+    /// The maximum size the console window.
     pub maximum_window_size: Coord
 }
 
+/// Represents a [https://docs.microsoft.com/en-us/windows/console/small-rect-str].
+///
+/// link: [https://docs.microsoft.com/en-us/windows/console/small-rect-str]
 pub struct SmallRect{
     pub left: i16,
     pub top: i16,
@@ -20,11 +32,23 @@ pub struct SmallRect{
 impl From<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo{
     fn from(info: CONSOLE_SCREEN_BUFFER_INFO) -> Self {
         ConsoleScreenBufferInfo{
-            size: Coord::from(info.dwSize),
+            screen_buffer_size: Coord::from(info.dwSize),
             cursor_position: Coord::from(info.dwCursorPosition),
             attributes: info.wAttributes,
-            small_rect: SmallRect::from(info.srWindow),
+            window: SmallRect::from(info.srWindow),
             maximum_window_size: Coord::from(info.dwMaximumWindowSize)
+        }
+    }
+}
+
+impl Into<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo{
+    fn into(self) -> CONSOLE_SCREEN_BUFFER_INFO {
+        CONSOLE_SCREEN_BUFFER_INFO{
+            dwSize: self.screen_buffer_size.into(),
+            dwCursorPosition: self.cursor_position.into(),
+            wAttributes: self.attributes,
+            srWindow: self.window.into(),
+            dwMaximumWindowSize: self.maximum_window_size.into()
         }
     }
 }

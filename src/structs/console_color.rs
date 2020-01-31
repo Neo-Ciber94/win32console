@@ -1,29 +1,7 @@
 use crate::console::WinConsole;
 use std::fmt::{Display, Error, Write, Formatter};
 use std::convert::TryFrom;
-
-/// Represents a color for the windows console.
-//#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-//struct ConsoleColor;
-//
-//impl ConsoleColor{
-//    pub const BLACK: u16 = 0;
-//    pub const DARK_BLUE: u16 = 1;
-//    pub const DARK_GREEN: u16 = 2;
-//    pub const DARK_CYAN: u16 = 3;
-//    pub const DARK_RED: u16 = 4;
-//    pub const DARK_MAGENTA: u16 = 5;
-//    pub const DARK_YELLOW: u16 = 6;
-//    pub const GRAY: u16 = 7;
-//    pub const DARK_GRAY: u16 = 8;
-//    pub const BLUE: u16 = 9;
-//    pub const GREEN: u16 = 10;
-//    pub const CYAN: u16 = 11;
-//    pub const RED: u16 = 12;
-//    pub const MAGENTA: u16 = 13;
-//    pub const YELLOW: u16 = 14;
-//    pub const WHITE: u16 = 15;
-//}
+use winapi::_core::convert::TryInto;
 
 /// Represents a color for the windows console.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -46,7 +24,8 @@ pub enum ConsoleColor{
     White = 15
 }
 
-pub struct ColorParseError(u16);
+const FG_COLOR_MARK : u16 = 0xF;
+const BG_COLOR_MASK : u16 = 0xF0;
 
 impl ConsoleColor{
     pub fn as_foreground_color(&self) -> u16{
@@ -87,9 +66,6 @@ impl Into<u16> for ConsoleColor{
         self.as_foreground_color()
     }
 }
-
-const FG_COLOR_MARK : u16 = 0xF;
-const BG_COLOR_MASK : u16 = 0xF0;
 
 impl WinConsole{
     pub fn get_foreground_color(&self) -> std::io::Result<ConsoleColor>{
