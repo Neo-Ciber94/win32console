@@ -1,0 +1,12 @@
+[package]
+name = "win32console"
+version = "0.1.0"
+description = "Provides a wrapper to interact with the windows console from rust"
+keywords = ["console", "windows", "wincon", "winapi", "crossterm-winapi"]
+authors = ["Freddy L."]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+winapi = {version="0.3.8", features=["winnt", "handleapi", "processenv", "winbase", "fileapi", "wincon", "minwindef", "wingdi", "wincontypes", "consoleapi"]}
