@@ -1,6 +1,6 @@
 use std::io::{Error, ErrorKind, Result};
 use std::iter;
-use std::mem::{MaybeUninit, transmute};
+use std::mem::{transmute, MaybeUninit};
 use std::str;
 use std::sync::Arc;
 
@@ -11,20 +11,21 @@ use winapi::um::consoleapi::{
     GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode,
     WriteConsoleW,
 };
-use winapi::um::fileapi::{CreateFileW, OPEN_EXISTING, WriteFile};
+use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::processenv::{GetStdHandle, SetStdHandle};
 use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::{
-    CONSOLE_FONT_INFOEX, FillConsoleOutputAttribute, FillConsoleOutputCharacterW,
-    GetConsoleScreenBufferInfo, GetConsoleScreenBufferInfoEx, GetConsoleTitleW,
-    GetCurrentConsoleFontEx, GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons,
-    INPUT_RECORD, PeekConsoleInputW, SetConsoleCursorPosition,
-    SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute, SetConsoleTitleW, SetCurrentConsoleFontEx,
-    WriteConsoleOutputCharacterW,
-};
 use winapi::um::wincon::CONSOLE_READCONSOLE_CONTROL;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
+use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
+use winapi::um::wincon::{
+    FillConsoleOutputAttribute, FillConsoleOutputCharacterW, GetConsoleScreenBufferInfo,
+    GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
+    GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
+    SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
+    SetConsoleTitleW, SetCurrentConsoleFontEx, WriteConsoleOutputCharacterW, CONSOLE_FONT_INFOEX,
+    INPUT_RECORD,
+};
 use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE};
 
 use crate::structs::console_font_info::ConsoleFontInfoEx;
@@ -115,7 +116,7 @@ impl ConsoleMode {
 
     /// Required to enable or disable extended flags. See [ENABLE_INSERT_MODE] and [ENABLE_QUICK_EDIT_MODE].
     /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolemode#parameters]
-    pub const ENABLE_EXTENDED_FLAGS : u32 = 0x0080;
+    pub const ENABLE_EXTENDED_FLAGS: u32 = 0x0080;
 
     /// Setting this flag directs the Virtual Terminal processing engine to convert user input received by the console window
     /// into Console Virtual Terminal Sequences that can be retrieved by a supporting application
@@ -354,7 +355,9 @@ impl WinConsole {
     /// let console = WinConsole::from(provider);
     /// /// Read using the handle
     /// ```
-    pub fn from<F>(handle_provider: F) -> WinConsole where F: 'static + Sized + Fn() -> Handle,
+    pub fn from<F>(handle_provider: F) -> WinConsole
+    where
+        F: 'static + Sized + Fn() -> Handle,
     {
         WinConsole {
             handle_provider: Box::new(handle_provider),
@@ -379,11 +382,24 @@ impl WinConsole {
     /// Basic usages:
     /// ```
     /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
     ///
     /// // Either `output` or `input` handle can be used
     /// WinConsole::output().set_title("Cool App!").unwrap();
-    /// let title = WinConsole::input().get_title();
-    /// println!("{}", title); // Cool App!
+    /// let title = WinConsole::input().get_title().unwrap();
+    /// WinConsole::output().write_utf8(title.as_bytes()); // Cool App!
+    ///
+    /// loop {
+    /// // We need a loop to see the title, when the process end the console will go back
+    /// // to the original title
+    /// if let KeyEvent(e) = WinConsole::input().read_single_input().unwrap() {
+    ///     // when press escape, exit
+    ///     // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    ///     if e.virtual_key_code == 0x1B {
+    ///         break;
+    ///     }
+    ///   }
+    /// }
     /// ```
     pub fn set_title(&self, title: &str) -> Result<()> {
         let buffer = if title.ends_with('\0') {
@@ -412,11 +428,24 @@ impl WinConsole {
     /// Basic usages:
     /// ```
     /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
     ///
     /// // Either `output` or `input` handle can be used
     /// WinConsole::output().set_title("Cool App!").unwrap();
-    /// let title = WinConsole::input().get_title();
-    /// println!("{}", title); // Cool App!
+    /// let title = WinConsole::input().get_title().unwrap();
+    /// WinConsole::output().write_utf8(title.as_bytes()); // Cool App!
+    ///
+    /// loop {
+    /// // We need a loop to see the title, when the process end the console will go back
+    /// // to the original title
+    /// if let KeyEvent(e) = WinConsole::input().read_single_input().unwrap() {
+    ///     // when press escape, exit
+    ///     // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    ///     if e.virtual_key_code == 0x1B {
+    ///         break;
+    ///     }
+    ///   }
+    /// }
     /// ```
     pub fn get_title(&self) -> Result<String> {
         let mut buffer = iter::repeat_with(u16::default)
@@ -452,7 +481,7 @@ impl WinConsole {
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
     /// WinConsole::output().set_console_font_info(new_info).unwrap();
-    /// WinConsole::input().write_utf8("Hello World".as_bytes()).unwrap();
+    /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     ///
     /// //  WinConsole::output().set_console_font_info(old_info).unwrap();
     /// // DON'T WILL SHOW `BOLD` AND NORMAL FONT!!
@@ -490,7 +519,7 @@ impl WinConsole {
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
     /// WinConsole::output().set_console_font_info(new_info).unwrap();
-    /// WinConsole::input().write_utf8("Hello World".as_bytes()).unwrap();
+    /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     /// ```
     ///
     /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
@@ -576,6 +605,14 @@ impl WinConsole {
     }
 
     /// Checks if the console have the specified mode.
+    ///
+    /// # Example
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleMode};
+    /// assert!(WinConsole::input().has_mode(ConsoleMode::ENABLE_PROCESSED_INPUT).unwrap());
+    /// ```
     pub fn has_mode(&self, mode: u32) -> Result<bool> {
         match self.get_mode() {
             Ok(state) => Ok((state & mode) != 0),
@@ -583,10 +620,15 @@ impl WinConsole {
         }
     }
 
-    /// Gets the current [ConsoleScreenBufferInfo].
+    /// Gets the current screen buffer info.
     ///
     /// Wraps a call to [GetConsoleScreenBufferInfo]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfo]
+    ///
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    /// let info = WinConsole::output().get_console_screen_buffer_info().unwrap();
+    /// ```
     pub fn get_console_screen_buffer_info(&self) -> Result<ConsoleScreenBufferInfo> {
         let handle = self.get_handle();
 
@@ -600,15 +642,31 @@ impl WinConsole {
         }
     }
 
-    /// Gets the current [ConsoleScreenBufferInfoEx].
+    /// Gets extended information of the console screen buffer.
     ///
     /// Wraps a call to [GetConsoleScreenBufferInfoEx]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfoex]
+    ///
+    /// # Examples
+    ///
+    /// Basic usages
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    ///
+    /// let old_info = WinConsole::output().get_console_screen_buffer_info_ex().unwrap();
+    /// let mut  new_info = old_info.clone();
+    /// new_info.attributes = ConsoleTextAttribute::FOREGROUND_RED | ConsoleTextAttribute::FOREGROUND_INTENSITY;
+    /// WinConsole::output().set_console_screen_buffer_info_ex(new_info); // Set foreground color red
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    /// WinConsole::output().set_console_screen_buffer_info_ex(old_info); // Restore old info
+    /// ```
     pub fn get_console_screen_buffer_info_ex(&self) -> Result<ConsoleScreenBufferInfoEx> {
         let handle = self.get_handle();
 
         unsafe {
-            let mut buffer_info = std::mem::zeroed();
+            let mut buffer_info: CONSOLE_SCREEN_BUFFER_INFOEX = std::mem::zeroed();
+            buffer_info.cbSize = std::mem::size_of::<CONSOLE_SCREEN_BUFFER_INFOEX>() as u32;
+
             if GetConsoleScreenBufferInfoEx(*handle, &mut buffer_info) != 0 {
                 Ok(ConsoleScreenBufferInfoEx::from(buffer_info))
             } else {
@@ -617,16 +675,30 @@ impl WinConsole {
         }
     }
 
-    /// Sets teh current [ConsoleScreenBufferInfoEx]
+    /// Sets the extended console screen buffer information.
     ///
     /// Wraps a call to [SetConsoleScreenBufferInfoEx]
     /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolescreenbufferinfoex]
+    ///
+    /// # Examples
+    ///
+    /// Basic usages
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    ///
+    /// let old_info = WinConsole::output().get_console_screen_buffer_info_ex().unwrap();
+    /// let mut  new_info = old_info.clone();
+    /// new_info.attributes = ConsoleTextAttribute::FOREGROUND_RED | ConsoleTextAttribute::FOREGROUND_INTENSITY;
+    /// WinConsole::output().set_console_screen_buffer_info_ex(new_info); // Set foreground color red
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    /// WinConsole::output().set_console_screen_buffer_info_ex(old_info); // Restore old info
+    /// ```
     pub fn set_console_screen_buffer_info_ex(&self, info: ConsoleScreenBufferInfoEx) -> Result<()> {
         let handle = self.get_handle();
 
         unsafe {
-            let mut buf = info.into();
-            if SetConsoleScreenBufferInfoEx(*handle, &mut buf) == 0 {
+            let mut buffer_info = info.into();
+            if SetConsoleScreenBufferInfoEx(*handle, &mut buffer_info) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
@@ -634,10 +706,55 @@ impl WinConsole {
         }
     }
 
-    /// Sets the position of the cursor.
+    /// Sets the position of the cursor. don't confuse with mouse cursor.
     ///
     /// Wraps a call to [SetConsoleCursorPosition]
     /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolecursorposition]
+    ///
+    /// # Examples
+    ///
+    /// Usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    ///
+    /// fn remove_last(){
+    ///        let pos = WinConsole::output().get_cursor_position().unwrap();
+    ///        if pos.x > 0{
+    ///            const WHITE_SPACE : &[u8; 1] = b" ";
+    ///            let new_pos = pos.with_x(pos.x - 1);
+    ///
+    ///            // Move back, write a whitespace and move back again
+    ///            // to remove the last written char
+    ///            WinConsole::output().set_cursor_position(new_pos);
+    ///            WinConsole::output().write_utf8(WHITE_SPACE);
+    ///            WinConsole::output().set_cursor_position(new_pos);
+    ///        }
+    ///    }
+    ///
+    ///    // A simple alphanumeric reader from the std input
+    ///    loop{
+    ///        if let KeyEvent(event) = WinConsole::input().read_single_input().unwrap(){
+    ///             // Only enter when the key is pressed down
+    ///            if event.key_down{
+    ///                // Only alphanumeric are allowed so any other is ignore
+    ///                if event.u_char.is_ascii_alphanumeric() {
+    ///                    let mut buf = [0];
+    ///                    event.u_char.encode_utf8(&mut buf);
+    ///                    // Write the character
+    ///                    WinConsole::output().write_utf8(&buf);
+    ///                }
+    ///                else{
+    ///                    match event.virtual_key_code{
+    ///                        0x08 => { remove_last(); } // Remove last on backspace press
+    ///                        0x1B => { break; }         // Exit when escape is press
+    ///                        _ => {}
+    ///                    }
+    ///                }
+    ///            }
+    ///        }
+    ///    }
+    /// ```
     pub fn set_cursor_position(&self, coord: Coord) -> Result<()> {
         unsafe {
             let handle = self.get_handle();
@@ -649,13 +766,66 @@ impl WinConsole {
         }
     }
 
-    /// Gets the current position of the cursor.
+    /// Gets the current position of the cursor. don't confuse with mouse cursor.
+    ///
+    /// # Examples
+    ///
+    /// Usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    ///
+    /// fn remove_last(){
+    ///        let pos = WinConsole::output().get_cursor_position().unwrap();
+    ///        if pos.x > 0{
+    ///            const WHITE_SPACE : &[u8; 1] = b" ";
+    ///            let new_pos = pos.with_x(pos.x - 1);
+    ///
+    ///            // Move back, write a whitespace and move back again
+    ///            // to remove the last written char
+    ///            WinConsole::output().set_cursor_position(new_pos);
+    ///            WinConsole::output().write_utf8(WHITE_SPACE);
+    ///            WinConsole::output().set_cursor_position(new_pos);
+    ///        }
+    ///    }
+    ///
+    ///    // A simple alphanumeric reader from the std input
+    ///    loop{
+    ///        if let KeyEvent(event) = WinConsole::input().read_single_input().unwrap(){
+    ///             // Only enter when the key is pressed down
+    ///            if event.key_down{
+    ///                // Only alphanumeric are allowed so any other is ignore
+    ///                if event.u_char.is_ascii_alphanumeric() {
+    ///                    let mut buf = [0];
+    ///                    event.u_char.encode_utf8(&mut buf);
+    ///                    // Write the character
+    ///                    WinConsole::output().write_utf8(&buf);
+    ///                }
+    ///                else{
+    ///                    match event.virtual_key_code{
+    ///                        0x08 => { remove_last(); } // Remove last on backspace press
+    ///                        0x1B => { break; }         // Exit when escape is press
+    ///                        _ => {}
+    ///                    }
+    ///                }
+    ///            }
+    ///        }
+    ///    }
+    /// ```
     pub fn get_cursor_position(&self) -> Result<Coord> {
         self.get_console_screen_buffer_info()
             .map(|value| value.cursor_position)
     }
 
-    /// Clears the content of the console and set the cursor to (0, 0)
+    /// Clears the content of the console screen buffer and set the cursor to (0, 0)
+    ///
+    /// # Example
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// WinConsole::output().clear();
+    /// ```
     pub fn clear(&self) -> Result<()> {
         unsafe {
             let mut info = self.get_console_screen_buffer_info()?;
@@ -674,6 +844,15 @@ impl WinConsole {
     ///
     /// Wraps a call to [FillConsoleOutputCharacterW]
     /// link: [https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputcharacter]
+    ///
+    /// # Example
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let current_pos = WinConsole::output().get_cursor_position().unwrap();
+    /// WinConsole::output().fill_with_char(current_pos, 10, 'x').unwrap();
+    /// ```
     pub fn fill_with_char(
         &self,
         start_location: Coord,
@@ -703,6 +882,23 @@ impl WinConsole {
     ///
     /// Wraps a call to [FillConsoleOutputAttribute]
     /// link: [https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputattribute]
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let len = 100;
+    /// let current_pos = WinConsole::output().get_cursor_position().unwrap();
+    /// WinConsole::output().fill_with_char(current_pos, len, ' ').unwrap();
+    ///
+    /// for i in 0..len{
+    ///    let mut pos = current_pos.clone();
+    ///    pos.x += i as i16;
+    ///    let color : u16 = (16 << (i % 3)) as u16; // Apply colors to the characters
+    ///    WinConsole::output().fill_with_attribute(pos, 1, color);
+    ///}
+    /// ```
     pub fn fill_with_attribute(
         &self,
         start_location: Coord,

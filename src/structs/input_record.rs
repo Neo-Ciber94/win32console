@@ -1,8 +1,8 @@
-use winapi::um::wincon::INPUT_RECORD;
-use crate::structs::input_event::{KeyEventRecord, MouseEventRecord};
-use crate::structs::window_buffer_size_event::WindowBufferSizeRecord;
 use crate::structs::focus_event::FocusEventRecord;
+use crate::structs::input_event::{KeyEventRecord, MouseEventRecord};
 use crate::structs::menu_event::MenuEventRecord;
+use crate::structs::window_buffer_size_event::WindowBufferSizeRecord;
+use winapi::um::wincon::INPUT_RECORD;
 
 /// Represents an [INPUT_RECORD] which describes an input event in the console input buffer.
 ///
@@ -31,11 +31,13 @@ impl From<INPUT_RECORD> for InputRecord {
     #[inline]
     fn from(record: INPUT_RECORD) -> Self {
         match record.EventType {
-            KEY_EVENT => InputRecord::KeyEvent(KeyEventRecord::from(unsafe {
-                record.Event.KeyEvent()
-            })),
+            KEY_EVENT => {
+                InputRecord::KeyEvent(KeyEventRecord::from(unsafe { record.Event.KeyEvent() }))
+            }
             MOUSE_EVENT => InputRecord::MouseEvent(unsafe { *record.Event.MouseEvent() }.into()),
-            WINDOW_BUFFER_SIZE_EVENT => InputRecord::WindowBufferSizeEvent(unsafe { *record.Event.WindowBufferSizeEvent() }.into()),
+            WINDOW_BUFFER_SIZE_EVENT => InputRecord::WindowBufferSizeEvent(
+                unsafe { *record.Event.WindowBufferSizeEvent() }.into(),
+            ),
             FOCUS_EVENT => InputRecord::FocusEvent(unsafe { *record.Event.FocusEvent() }.into()),
             MENU_EVENT => InputRecord::MenuEvent(unsafe { *record.Event.MenuEvent() }.into()),
             code => panic!("Unexpected INPUT_RECORD EventType: {}", code),

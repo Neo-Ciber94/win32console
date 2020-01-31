@@ -1,24 +1,24 @@
-use std::sync::Arc;
-use winapi::um::winnt::HANDLE;
-use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use std::ops::Deref;
+use std::sync::Arc;
+use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::winnt::HANDLE;
 
 /// Wraps a windows [HANDLE].
 #[derive(Debug, Clone)]
-pub struct Handle{
-    inner: Arc<Inner>
+pub struct Handle {
+    inner: Arc<Inner>,
 }
 
 /// Wraps the actual [HANDLE] and drop it is owned.
 #[derive(Debug)]
-struct Inner{
+struct Inner {
     handle: HANDLE,
-    ownership: HandleOwnership
+    ownership: HandleOwnership,
 }
 
 // Synchronize the [Inner].
-unsafe impl Send for Inner{}
-unsafe impl Sync for Inner{}
+unsafe impl Send for Inner {}
+unsafe impl Sync for Inner {}
 
 /// Represents the ownership of a `HANDLE`.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -26,18 +26,21 @@ enum HandleOwnership {
     /// The handle is owned by the instance so should be close.
     Owned,
     /// The handle is used for others instances, so cannot be close.
-    Shared
+    Shared,
 }
 
-impl Drop for Inner{
+impl Drop for Inner {
     fn drop(&mut self) {
-        if self.ownership == HandleOwnership::Owned{
-            assert!(unsafe{CloseHandle(self.handle) != 0}, "Cannot close the handle")
+        if self.ownership == HandleOwnership::Owned {
+            assert!(
+                unsafe { CloseHandle(self.handle) != 0 },
+                "Cannot close the handle"
+            )
         }
     }
 }
 
-impl Handle{
+impl Handle {
     /// Creates a new shared `Handle` from the specified.
     ///
     /// # Examples
@@ -51,9 +54,12 @@ impl Handle{
     /// let handle = Handle::from_raw(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
     /// assert!(handle.is_valid());
     /// ```
-    pub fn from_raw(handle: HANDLE) -> Handle{
-        Handle{
-            inner: Arc::new(Inner{ handle, ownership: HandleOwnership::Shared })
+    pub fn from_raw(handle: HANDLE) -> Handle {
+        Handle {
+            inner: Arc::new(Inner {
+                handle,
+                ownership: HandleOwnership::Shared,
+            }),
         }
     }
 
@@ -81,9 +87,12 @@ impl Handle{
     ///            ) });
     /// assert_ne!(handle, INVALID_HANDLE_VALUE);
     /// ```
-    pub fn new_closeable(handle: HANDLE) -> Handle{
-        Handle{
-            inner: Arc::new(Inner{ handle, ownership: HandleOwnership::Owned } )
+    pub fn new_closeable(handle: HANDLE) -> Handle {
+        Handle {
+            inner: Arc::new(Inner {
+                handle,
+                ownership: HandleOwnership::Owned,
+            }),
         }
     }
 
@@ -130,7 +139,7 @@ impl Handle{
     }
 }
 
-impl Deref for Handle{
+impl Deref for Handle {
     type Target = HANDLE;
 
     /// Gets a reference to the underlying [HANDLE].

@@ -1,12 +1,12 @@
-use winapi::um::wingdi::LF_FACESIZE;
-use winapi::um::wincon::CONSOLE_FONT_INFOEX;
 use crate::structs::coord::Coord;
+use winapi::um::wincon::CONSOLE_FONT_INFOEX;
+use winapi::um::wingdi::LF_FACESIZE;
 
 /// Represents a [CONSOLE_FONT_INFOEX] which contains extended information about the console font.
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/console-font-infoex]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ConsoleFontInfoEx{
+pub struct ConsoleFontInfoEx {
     /// Size this struct in bytes.
     ///
     /// The size can be obtained using:
@@ -27,28 +27,28 @@ pub struct ConsoleFontInfoEx{
     pub face_name: [u16; LF_FACESIZE],
 }
 
-impl From<&CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx{
+impl From<&CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx {
     fn from(info: &CONSOLE_FONT_INFOEX) -> Self {
-        ConsoleFontInfoEx{
+        ConsoleFontInfoEx {
             size: info.cbSize,
             font_index: info.nFont,
             font_size: Coord::from(info.dwFontSize),
             font_family: info.FontFamily,
             font_weight: info.FontWeight,
-            face_name: info.FaceName
+            face_name: info.FaceName,
         }
     }
 }
 
-impl Into<CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx{
+impl Into<CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx {
     fn into(self) -> CONSOLE_FONT_INFOEX {
-        CONSOLE_FONT_INFOEX{
+        CONSOLE_FONT_INFOEX {
             cbSize: self.size,
             nFont: self.font_index,
             dwFontSize: self.font_size.into(),
             FontFamily: self.font_family,
             FontWeight: self.font_weight,
-            FaceName: self.face_name
+            FaceName: self.face_name,
         }
     }
 }

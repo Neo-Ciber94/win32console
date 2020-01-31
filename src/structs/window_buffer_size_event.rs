@@ -1,5 +1,5 @@
-use winapi::um::wincon::WINDOW_BUFFER_SIZE_RECORD;
 use crate::structs::coord::Coord;
+use winapi::um::wincon::WINDOW_BUFFER_SIZE_RECORD;
 
 /// Represents a [WINDOW_BUFFER_SIZE_RECORD] which describes a change in the size of the console screen buffer.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

@@ -18,4 +18,3 @@ impl From<MENU_EVENT_RECORD> for MenuEventRecord {
         }
     }
 }
-

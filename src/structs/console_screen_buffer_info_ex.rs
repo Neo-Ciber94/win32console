@@ -1,12 +1,13 @@
-use crate::structs::coord::Coord;
 use crate::structs::console_screen_buffer_info::SmallRect;
+use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
 
 /// Represents a [CONSOLE_SCREEN_BUFFER_INFOEX] which contains extended information about
 /// the console screen buffer.
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-infoex]
-pub struct ConsoleScreenBufferInfoEx{
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ConsoleScreenBufferInfoEx {
     /// Size this struct in bytes.
     ///
     /// The size can eb obtained using:
@@ -35,9 +36,9 @@ pub struct ConsoleScreenBufferInfoEx{
     pub color_table: [u32; 16],
 }
 
-impl From<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx{
+impl From<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx {
     fn from(info: CONSOLE_SCREEN_BUFFER_INFOEX) -> Self {
-        ConsoleScreenBufferInfoEx{
+        ConsoleScreenBufferInfoEx {
             size: info.cbSize,
             screen_buffer_size: Coord::from(info.dwSize),
             cursor_position: Coord::from(info.dwCursorPosition),
@@ -46,14 +47,14 @@ impl From<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx{
             maximum_window_size: Coord::from(info.dwMaximumWindowSize),
             popup_attributes: info.wPopupAttributes,
             full_screen_supported: info.bFullscreenSupported != 0,
-            color_table: info.ColorTable
+            color_table: info.ColorTable,
         }
     }
 }
 
-impl Into<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx{
+impl Into<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx {
     fn into(self) -> CONSOLE_SCREEN_BUFFER_INFOEX {
-        CONSOLE_SCREEN_BUFFER_INFOEX{
+        CONSOLE_SCREEN_BUFFER_INFOEX {
             cbSize: self.size,
             dwSize: self.screen_buffer_size.into(),
             dwCursorPosition: self.cursor_position.into(),
@@ -62,7 +63,7 @@ impl Into<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx{
             dwMaximumWindowSize: self.maximum_window_size.into(),
             wPopupAttributes: self.popup_attributes,
             bFullscreenSupported: self.full_screen_supported as i32,
-            ColorTable: self.color_table
+            ColorTable: self.color_table,
         }
     }
 }
