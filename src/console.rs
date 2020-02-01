@@ -11,11 +11,11 @@ use winapi::um::consoleapi::{
     GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode,
     WriteConsoleW,
 };
-use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING};
+use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::processenv::{GetStdHandle, SetStdHandle};
 use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::CONSOLE_READCONSOLE_CONTROL;
+use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo};
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
 use winapi::um::wincon::{
@@ -29,11 +29,13 @@ use winapi::um::wincon::{
 use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE};
 
 use crate::structs::console_font_info::ConsoleFontInfoEx;
-use crate::structs::console_screen_buffer_info::ConsoleScreenBufferInfo;
+use crate::structs::console_screen_buffer_info::{ConsoleScreenBufferInfo, SmallRect};
 use crate::structs::console_screen_buffer_info_ex::ConsoleScreenBufferInfoEx;
 use crate::structs::coord::Coord;
 use crate::structs::handle::Handle;
 use crate::structs::input_record::InputRecord;
+use crate::structs::char_info::CharInfo;
+use winapi::um::wincontypes::{PCHAR_INFO, PSMALL_RECT};
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -126,21 +128,35 @@ impl ConsoleMode {
 
 impl ConsoleTextAttribute {
     /// Text color contains blue.
-    pub const FOREGROUND_BLUE: u16 = 1;
+    pub const FOREGROUND_BLUE: u16 = 0x0001;
     /// Text color contains green.
-    pub const FOREGROUND_GREEN: u16 = 2;
+    pub const FOREGROUND_GREEN: u16 = 0x0002;
     /// Text color contains red.
-    pub const FOREGROUND_RED: u16 = 4;
+    pub const FOREGROUND_RED: u16 = 0x0004;
     /// Text color is intensified.
-    pub const FOREGROUND_INTENSITY: u16 = 8;
+    pub const FOREGROUND_INTENSITY: u16 = 0x0008;
     /// Background color contains blue.
-    pub const BACKGROUND_BLUE: u16 = 16;
+    pub const BACKGROUND_BLUE: u16 = 0x0010;
     /// Background color contains green.
-    pub const BACKGROUND_GREEN: u16 = 32;
+    pub const BACKGROUND_GREEN: u16 = 0x0020;
     /// Background color contains red.
-    pub const BACKGROUND_RED: u16 = 64;
+    pub const BACKGROUND_RED: u16 = 0x0040;
     /// Background color is intensified.
-    pub const BACKGROUND_INTENSITY: u16 = 128;
+    pub const BACKGROUND_INTENSITY: u16 = 0x0080;
+    /// Leading byte.
+    pub const COMMON_LVB_LEADING_BYTE: u16 = 0x0100;
+    /// Trailing byte.
+    pub const COMMON_LVB_TRAILING_BYTE : u16 = 0x0200;
+    /// Top horizontal
+    pub const COMMON_LVB_GRID_HORIZONTAL : u16 = 0x0400;
+    /// Left vertical.
+    pub const COMMON_LVB_GRID_LVERTICAL : u16 = 0x0800;
+    /// Right vertical.
+    pub const COMMON_LVB_GRID_RVERTICAL : u16 = 0x1000;
+    /// Reverse foreground and background attribute.
+    pub const COMMON_LVB_REVERSE_VIDEO : u16 = 0x4000;
+    /// Underscore.
+    pub const COMMON_LVB_UNDERSCORE : u16 = 0x8000;
 }
 
 impl Into<u32> for HandleType {
@@ -706,6 +722,49 @@ impl WinConsole {
         }
     }
 
+    /// Set the size of the console screen buffer.
+    ///
+    /// Wraps a call to [SetConsoleScreenBufferSize].
+    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolescreenbuffersize]
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::coord::Coord;
+    /// const WIDTH : i16 = 300;
+    /// const HEIGHT : i16 = 400;
+    ///
+    /// WinConsole::output().set_screen_buffer_size(Coord::new(WIDTH, HEIGHT));
+    /// ```
+    pub fn set_screen_buffer_size(&self, size: Coord) -> Result<()>{
+        let handle = self.get_handle();
+        unsafe{
+            if SetConsoleScreenBufferSize(*handle, size.into()) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
+    }
+
+    pub fn set_console_window_info(&self, absolute: bool, window: &SmallRect) -> Result<()>{
+        let handle = self.get_handle();
+        let mut small_rect: SMALL_RECT = (*window).into();
+        let small_rect_ptr = &mut small_rect as PSMALL_RECT;
+
+        unsafe{
+            if SetConsoleWindowInfo(*handle, absolute.into(), small_rect_ptr) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
+    }
+
     /// Sets the position of the cursor. don't confuse with mouse cursor.
     ///
     /// Wraps a call to [SetConsoleCursorPosition]
@@ -928,6 +987,20 @@ impl WinConsole {
     ///
     /// Wraps a call to [SetConsoleTextAttribute]
     /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoletextattribute]
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    ///
+    /// let old_attributes = WinConsole::output().get_text_attribute().unwrap();
+    /// let new_attributes = ConsoleTextAttribute::BACKGROUND_BLUE;
+    ///
+    /// WinConsole::output().set_text_attribute(new_attributes);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    /// WinConsole::output().set_text_attribute(old_attributes);
+    /// ```
     pub fn set_text_attribute(&self, attribute: u16) -> Result<()> {
         let handle = self.get_handle();
         unsafe {
@@ -940,6 +1013,20 @@ impl WinConsole {
     }
 
     /// Gets the text attributes of the characters in the console.
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    ///
+    /// let old_attributes = WinConsole::output().get_text_attribute().unwrap();
+    /// let new_attributes = ConsoleTextAttribute::BACKGROUND_BLUE;
+    ///
+    /// WinConsole::output().set_text_attribute(new_attributes);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    /// WinConsole::output().set_text_attribute(old_attributes);
+    /// ```
     pub fn get_text_attribute(&self) -> Result<u16> {
         Ok(self.get_console_screen_buffer_info()?.attributes)
     }
@@ -948,6 +1035,14 @@ impl WinConsole {
     ///
     /// Wraps a call to [GetLargestConsoleWindowSize]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getlargestconsolewindowsize]
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let max_size = WinConsole::output().get_largest_window_size().unwrap();
+    /// ```
     pub fn get_largest_window_size(&self) -> Result<Coord> {
         let handle = self.get_handle();
 
@@ -966,7 +1061,15 @@ impl WinConsole {
     ///
     /// Wraps a call to [GetNumberOfConsoleInputEvents]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getnumberofconsoleinputevents]
-    pub fn get_number_of_input_events(&self) -> Result<u32> {
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let unread_events = WinConsole::input().get_number_of_input_events().unwrap();
+    /// ```
+    pub fn get_number_of_input_events(&self) -> Result<usize> {
         let handle = self.get_handle();
 
         unsafe {
@@ -974,7 +1077,7 @@ impl WinConsole {
             if GetNumberOfConsoleInputEvents(*handle, &mut num_events) == 0 {
                 Err(Error::last_os_error())
             } else {
-                Ok(num_events)
+                Ok(num_events as usize)
             }
         }
     }
@@ -983,6 +1086,16 @@ impl WinConsole {
     ///
     /// Wraps a call to [GetNumberOfConsoleMouseButtons]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getnumberofconsolemousebuttons]
+    ///
+    /// # Examples:
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let x = WinConsole::input().get_number_of_mouse_buttons().unwrap();
+    /// let y = WinConsole::output().get_number_of_mouse_buttons().unwrap();
+    /// assert_eq!(x, y);
+    /// ```
     pub fn get_number_of_mouse_buttons(&self) -> Result<u32> {
         let mut num_buttons = 0;
 
@@ -996,6 +1109,37 @@ impl WinConsole {
     }
 
     /// Reads a single event from the console.
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    ///
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    /// use win32console::console::WinConsole;
+    ///
+    /// loop{
+    ///        // A simple alphanumeric reader from the std input
+    ///        if let KeyEvent(event) = WinConsole::input().read_single_input().unwrap(){
+    ///             // Only enter when the key is pressed down
+    ///            if event.key_down{
+    ///                // Only alphanumeric are allowed so any other is ignore
+    ///                if !(event.u_char.is_ascii_alphanumeric()) {
+    ///                    match event.virtual_key_code{
+    ///                        0x1B => { break; }         // Exit when escape is press
+    ///                        _ => {}
+    ///                    }
+    ///                }
+    ///                 else {
+    ///                    let mut buf = [0];
+    ///                    event.u_char.encode_utf8(&mut buf);
+    ///                    // Write the character
+    ///                    WinConsole::output().write_utf8(&buf);
+    ///                 }
+    ///            }
+    ///        }
+    ///    }
+    /// ```
     pub fn read_single_input(&self) -> Result<InputRecord> {
         unsafe {
             let mut record: [InputRecord; 1] = [std::mem::zeroed()];
@@ -1004,6 +1148,26 @@ impl WinConsole {
     }
 
     /// Reads the given number of events from the console.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    /// let input_records = WinConsole::input().read_n_console_input(20).unwrap();
+    ///
+    /// let mut buf = String::new();
+    /// for record in events{
+    ///     if let KeyEvent(key) = record{
+    ///         if key.key_down && key.u_char.is_ascii_alphanumeric(){
+    ///             buf.push(key.u_char);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// WinConsole::output().write_utf8(buf.as_bytes());
+    /// ```
     pub fn read_n_console_input(&self, count: u32) -> Result<Vec<InputRecord>> {
         if count == 0 {
             return Ok(vec![]);
@@ -1022,7 +1186,31 @@ impl WinConsole {
     ///
     /// Wraps a call to [ReadConsoleInputW]
     /// link: [https://docs.microsoft.com/en-us/windows/console/readconsoleinput]
-    pub fn read_console_input(&self, records: &mut [InputRecord]) -> Result<u32> {
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::structs::input_record::InputRecord;
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    ///
+    /// let mut input_records : [InputRecord; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// WinConsole::input().read_console_input(&mut input_records).unwrap();
+    ///
+    /// let mut buf = String::new();
+    /// for record in input_records.iter(){
+    ///     if let KeyEvent(key) = record{
+    ///         if key.key_down && key.u_char.is_ascii_alphanumeric(){
+    ///             buf.push(key.u_char);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// WinConsole::output().write_utf8(buf.as_bytes());
+    /// ```
+    pub fn read_console_input(&self, records: &mut [InputRecord]) -> Result<usize> {
         let handle = self.get_handle();
         let num_records = records.len();
         let mut num_events = 0;
@@ -1049,11 +1237,80 @@ impl WinConsole {
                     records[i] = buf[i].into()
                 }
 
-                Ok(num_events)
+                Ok(num_events as usize)
             }
         }
     }
 
+    /// Fills the specified buffer with the unread [InputRecord] from the console.
+    ///
+    /// Wraps a call to [PeekConsoleInputW]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/peekconsoleinput]
+    ///
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::structs::input_record::InputRecord;
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::input_record::InputRecord::KeyEvent;
+    ///
+    /// let mut input_records : [InputRecord; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// WinConsole::input().peek_console_input(&mut input_records).unwrap();
+    ///
+    /// let mut buf = String::new();
+    /// for record in input_records.iter(){
+    ///     if let KeyEvent(key) = record{
+    ///         if key.key_down && key.u_char.is_ascii_alphanumeric(){
+    ///             buf.push(key.u_char);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// WinConsole::output().write_utf8(buf.as_bytes());
+    /// ```
+    pub fn peek_console_input(&self, records: &mut [InputRecord]) -> Result<usize> {
+        let handle = self.get_handle();
+        let num_records = records.len();
+        let mut num_events = 0;
+
+        unsafe {
+            let mut buf = iter::repeat_with(|| std::mem::zeroed::<INPUT_RECORD>())
+                .take(num_records)
+                .collect::<Vec<INPUT_RECORD>>();
+
+            if PeekConsoleInputW(
+                *handle,
+                buf.as_mut_ptr(),
+                num_records as u32,
+                &mut num_events,
+            ) == 0
+            {
+                Err(Error::last_os_error())
+            } else {
+                // Documentation specify that at least 1 event will be read.
+                debug_assert!(num_events > 0);
+
+                // Copies each of the read events to the destination buffer
+                for i in 0..num_records {
+                    records[i] = buf[i].into()
+                }
+
+                Ok(num_events as usize)
+            }
+        }
+    }
+
+    /// Reads a `String` from the standard input, followed by a newline.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use win32console::console::WinConsole;
+    ///
+    /// WinConsole::output().write_utf8("What's your name? ".as_bytes());
+    /// let value = WinConsole::input().read().unwrap();
+    /// WinConsole::output().write_utf8(format!("Hello {}", value).as_bytes());
+    /// ```
     pub fn read(&self) -> Result<String> {
         // Used buffer size from:
         // https://source.dot.net/#System.Console/System/Console.cs,dac049f8d10df4a0
@@ -1068,6 +1325,17 @@ impl WinConsole {
         }
     }
 
+    /// Fills the given `[u8]` buffer with characters from the standard input.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::console::WinConsole;
+    /// let mut buffer : [u8 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// WinConsole::input().read_utf8(&mut buffer);
+    /// ```
     pub fn read_utf8(&self, buffer: &mut [u8]) -> Result<usize> {
         let mut utf16_buffer = iter::repeat_with(u16::default)
             .take(buffer.len())
@@ -1095,6 +1363,20 @@ impl WinConsole {
         Ok(written)
     }
 
+    /// Fills the given `[u16]` buffer with characters from the standard input.
+    ///
+    /// Wraps a call to [ReadConsoleW]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::console::WinConsole;
+    /// let mut buffer : [u16 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// WinConsole::input().read_utf16(&mut buffer);
+    /// ```
     pub fn read_utf16(&self, buffer: &mut [u16]) -> Result<usize> {
         // https://github.com/rust-lang/rust/blob/master/src/libstd/sys/windows/stdio.rs
         const CTRL_Z: u16 = 0x1A;
@@ -1109,6 +1391,26 @@ impl WinConsole {
 
         let handle = self.get_handle();
         let mut chars_read = 0;
+
+        if !WinConsole::is_console(*handle){
+            let mut data = match String::from_utf16(buffer) {
+                Ok(string) => string,
+                Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
+            };
+
+            unsafe{
+                if ReadFile(
+                    *handle,
+                    data.as_mut_ptr() as *mut c_void,
+                    buffer.len() as u32,
+                    &mut chars_read,
+                    null_mut()) == 0{
+                    return Err(Error::last_os_error());
+                }
+            }
+
+            return Ok(chars_read as usize);
+        }
 
         unsafe {
             if ReadConsoleW(
@@ -1130,47 +1432,19 @@ impl WinConsole {
         }
     }
 
-    /// Fills the specified buffer with the unread [InputRecord] from the console.
-    ///
-    /// Wraps a call to [PeekConsoleInputW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/peekconsoleinput]
-    pub fn peek_console_input(&self, records: &mut [InputRecord]) -> Result<u32> {
-        let handle = self.get_handle();
-        let num_records = records.len();
-        let mut num_events = 0;
-
-        unsafe {
-            let mut buf = iter::repeat_with(|| std::mem::zeroed::<INPUT_RECORD>())
-                .take(num_records)
-                .collect::<Vec<INPUT_RECORD>>();
-
-            if PeekConsoleInputW(
-                *handle,
-                buf.as_mut_ptr(),
-                num_records as u32,
-                &mut num_events,
-            ) == 0
-            {
-                Err(Error::last_os_error())
-            } else {
-                // Documentation specify that at least 1 event will be read.
-                debug_assert!(num_events > 0);
-
-                // Copies each of the read events to the destination buffer
-                for i in 0..num_records {
-                    records[i] = buf[i].into()
-                }
-
-                Ok(num_events)
-            }
-        }
-    }
-
-    /// Writes the specified buffer of chars in the current cursor position of the console.
+    /// Writes the specified `[u8]` buffer of chars in the current cursor position of the console.
     ///
     /// Wraps a call to [WriteConsoleW]
     /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsole]
-    pub fn write_utf8(&self, data: &[u8]) -> Result<u32> {
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    /// ```
+    pub fn write_utf8(&self, data: &[u8]) -> Result<usize> {
         let chars = match str::from_utf8(data) {
             Ok(values) => values.encode_utf16().collect::<Vec<u16>>(),
             Err(e) => {
@@ -1185,7 +1459,16 @@ impl WinConsole {
     ///
     /// Wraps a call to [WriteConsoleW]
     /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsole]
-    pub fn write_utf16(&self, data: &[u16]) -> Result<u32> {
+    ///
+    /// # Examples
+    ///
+    /// Basic usages:
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let x = "Hello World!".encode_utf16().collect::<Vec<u16>>();
+    /// WinConsole::output().write_utf16(x.as_slice());
+    /// ```
+    pub fn write_utf16(&self, data: &[u16]) -> Result<usize> {
         let handle = self.get_handle();
         let mut chars_written = 0;
 
@@ -1197,15 +1480,16 @@ impl WinConsole {
             };
 
             unsafe {
-                WriteFile(
+                if WriteFile(
                     *handle,
                     buf.as_ptr() as *const c_void,
                     data.len() as u32,
                     &mut chars_written,
-                    null_mut(),
-                );
+                    null_mut()) == 0{
+                    return Err(Error::last_os_error());
+                }
             }
-            return Ok(data.len() as u32);
+            return Ok(data.len());
         }
 
         unsafe {
@@ -1220,7 +1504,35 @@ impl WinConsole {
                 Err(Error::last_os_error())
             } else {
                 assert_eq!(chars_written, data.len() as u32);
-                Ok(chars_written)
+                Ok(chars_written as usize)
+            }
+        }
+    }
+
+    /// Writes the given buffer of `CharInfo` into the screen buffer.
+    ///
+    /// Wraps a call to [WriteConsoleOutputW]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsoleoutput]
+    /// see also: [https://www.randygaul.net/2011/11/16/windows-console-game-writing-to-the-console/]
+    ///
+    /// - `buffer_size`: the size of the `buffer` in rows and columns.
+    /// - `buffer_start`: the origin in the `buffer` where start to take the characters to write.
+    /// - `write_area`: Represents the screen buffer area to write to.
+    pub fn write_char_buffer(&self, buffer: &[CharInfo], buffer_size: Coord, buffer_start: Coord, write_area: SmallRect) -> Result<()>{
+        let handle = self.get_handle();
+        let write_area_raw: PSMALL_RECT = &mut write_area.into();
+
+        unsafe{
+            if WriteConsoleOutputW(
+                *handle,
+                buffer.as_ptr() as PCHAR_INFO,
+                buffer_size.into(),
+                buffer_start.into(),
+                write_area_raw) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
             }
         }
     }

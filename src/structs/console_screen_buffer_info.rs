@@ -1,6 +1,6 @@
 use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
-use winapi::um::wincontypes::SMALL_RECT;
+use winapi::um::wincontypes::{SMALL_RECT, PSMALL_RECT};
 
 /// Represents a [CONSOLE_SCREEN_BUFFER_INFO], which contains information about the
 /// console screen buffer.
@@ -29,6 +29,13 @@ pub struct SmallRect {
     pub top: i16,
     pub right: i16,
     pub bottom: i16,
+}
+
+impl SmallRect {
+    /// Creates a new `SmallRect`.
+    pub fn new(left: i16, top: i16, right: i16, bottom: i16) -> Self{
+        SmallRect{ left, top, right, bottom}
+    }
 }
 
 impl From<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo {
