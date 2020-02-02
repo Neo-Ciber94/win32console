@@ -789,7 +789,10 @@ impl WinConsole {
     ///
     /// # Examples
     /// ```
-    ///
+    /// use win32console::structs::console_screen_buffer_info::SmallRect;
+    /// use win32console::console::WinConsole;
+    /// let window = SmallRect::new(0, 0, 40, 50);
+    /// WinConsole::output().set_console_window_info(true, &window);
     /// ```
     pub fn set_console_window_info(&self, absolute: bool, window: &SmallRect) -> Result<()>{
         let handle = self.get_handle();
