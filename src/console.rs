@@ -37,6 +37,8 @@ use crate::structs::handle::Handle;
 use crate::structs::input_record::InputRecord;
 use crate::structs::char_info::CharInfo;
 use winapi::um::wincontypes::{PCHAR_INFO, PSMALL_RECT};
+use crate::structs::console_color::ConsoleColor;
+use std::convert::TryFrom;
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -1211,13 +1213,15 @@ impl WinConsole {
             //self.read_console_input(&mut record).map(|_| record[0])
 
             let mut record: InputRecord = std::mem::zeroed();
-            let mut buf = slice::from_mut(&record);
+            let mut buf = slice::from_mut(&mut record);
             self.read_console_input(&mut buf)?;
-            Ok(resord)
+            Ok(record)
         }
     }
 
     /// Reads input events from the console.
+    ///
+    /// - `buffer_size`: the size of the buffer that will store the events.
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
@@ -1227,7 +1231,7 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
-    /// let input_records = WinConsole::input().read_inputs().unwrap();
+    /// let input_records = WinConsole::input().read_inputs(10).unwrap();
     ///
     /// let mut buf = String::new();
     /// for record in events{
@@ -1240,18 +1244,18 @@ impl WinConsole {
     ///
     /// WinConsole::output().write_utf8(buf.as_bytes());
     /// ```
-    pub fn read_inputs(&self) -> Result<Vec<InputRecord>> {
-        if count == 0 {
+    pub fn read_inputs(&self, buffer_size: usize) -> Result<Vec<InputRecord>> {
+        if buffer_size == 0 {
             return Ok(vec![]);
         }
 
         let mut buffer: Vec<InputRecord> =
             iter::repeat_with(unsafe { || std::mem::zeroed::<InputRecord>() })
-                .take(count as usize)
+                .take(buffer_size)
                 .collect();
 
-        self.read_console_input(buffer.as_mut_slice())?
-            .map(|_| buffer)
+        self.read_console_input(buffer.as_mut_slice())?;
+        Ok(buffer)
     }
 
     /// Fills the specified buffer with [InputRecord] from the console.
@@ -1684,5 +1688,124 @@ impl WinConsole {
     fn is_console(handle: HANDLE) -> bool {
         let mut mode = 0;
         unsafe { GetConsoleMode(handle, &mut mode) != 0 }
+    }
+}
+
+// ConsoleColor methods
+impl WinConsole {
+    const FG_COLOR_MARK: u16 = 0xF;
+    const BG_COLOR_MASK: u16 = 0xF0;
+
+    /// Gets the foreground color of the console.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_color::ConsoleColor;
+    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
+    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    ///
+    /// WinConsole::output().set_foreground_color(ConsoleColor::Red);
+    /// WinConsole::output().set_background_color(ConsoleColor::Yellow);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    ///
+    /// // Restore colors
+    /// WinConsole::output().set_foreground_color(old_fgcolor);
+    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// ```
+    pub fn get_foreground_color(&self) -> std::io::Result<ConsoleColor> {
+        let attributes = self.get_text_attribute()?;
+        Ok(ConsoleColor::try_from(attributes & WinConsole::FG_COLOR_MARK)
+            .ok()
+            .expect(format!("Invalid color value: {}", attributes).as_ref()))
+    }
+
+    /// Gets the background color of the console.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_color::ConsoleColor;
+    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
+    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    ///
+    /// WinConsole::output().set_foreground_color(ConsoleColor::Black);
+    /// WinConsole::output().set_background_color(ConsoleColor::White);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    ///
+    /// // Restore colors
+    /// WinConsole::output().set_foreground_color(old_fgcolor);
+    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// ```
+    pub fn get_background_color(&self) -> std::io::Result<ConsoleColor> {
+        let attributes = self.get_text_attribute()?;
+        let value = attributes << 4;
+        Ok(ConsoleColor::try_from(attributes & WinConsole::BG_COLOR_MASK)
+            .ok()
+            .expect(format!("Invalid color value: {}", attributes).as_ref()))
+    }
+
+    /// Sets the foreground color of the console.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_color::ConsoleColor;
+    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
+    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    ///
+    /// WinConsole::output().set_foreground_color(ConsoleColor::Yellow);
+    /// WinConsole::output().set_background_color(ConsoleColor::DarkMagenta);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    ///
+    /// // Restore colors
+    /// WinConsole::output().set_foreground_color(old_fgcolor);
+    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// ```
+    pub fn set_foreground_color(&self, color: ConsoleColor) -> std::io::Result<()> {
+        let old_attributes = self.get_text_attribute()?;
+        let new_attributes =
+            (old_attributes & !(old_attributes & WinConsole::FG_COLOR_MARK)) | color.as_foreground_color();
+        self.set_text_attribute(new_attributes)
+    }
+
+    /// Sets the background color of the console.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_color::ConsoleColor;
+    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
+    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    ///
+    /// WinConsole::output().set_foreground_color(ConsoleColor::DarkBlue);
+    /// WinConsole::output().set_background_color(ConsoleColor::Green);
+    /// WinConsole::output().write_utf8("Hello World!".as_bytes());
+    ///
+    /// // Restore colors
+    /// WinConsole::output().set_foreground_color(old_fgcolor);
+    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// ```
+    pub fn set_background_color(&self, color: ConsoleColor) -> std::io::Result<()> {
+        let old_attributes = self.get_text_attribute()?;
+        let new_attributes =
+            (old_attributes & !(old_attributes & WinConsole::BG_COLOR_MASK)) | color.as_background_color();
+        self.set_text_attribute(new_attributes)
     }
 }
