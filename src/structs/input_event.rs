@@ -57,7 +57,7 @@ pub struct MouseEventRecord {
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ButtonState(u32);
+pub struct ButtonState(i32);
 
 /// Represents the state of the control keys.
 ///
@@ -215,7 +215,7 @@ impl ButtonState {
     }
 
     /// Returns the raw state.
-    pub fn get_state(&self) -> u32 {
+    pub fn get_state(&self) -> i32 {
         self.0
     }
 }
@@ -228,7 +228,6 @@ impl From<&KEY_EVENT_RECORD> for KeyEventRecord {
             repeat_count: record.wRepeatCount,
             virtual_key_code: record.wVirtualKeyCode,
             virtual_scan_code: record.wVirtualScanCode,
-            ///u_char: unsafe { *record.uChar.UnicodeChar() },
             u_char: unsafe{ char::try_from(*record.uChar.UnicodeChar() as u32).ok().unwrap() },
             control_key_state: ControlKeyState(record.dwControlKeyState),
         }
@@ -263,6 +262,6 @@ impl From<MOUSE_EVENT_RECORD> for MouseEventRecord {
 impl From<u32> for ButtonState {
     #[inline]
     fn from(state: u32) -> Self {
-        ButtonState(state)
+        ButtonState(state as i32)
     }
 }

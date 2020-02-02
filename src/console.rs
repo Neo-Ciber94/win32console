@@ -15,7 +15,7 @@ use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::processenv::{GetStdHandle, SetStdHandle};
 use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo};
+use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo, CHAR_INFO, CHAR_INFO_Char};
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
 use winapi::um::wincon::{
@@ -733,8 +733,8 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::coord::Coord;
-    /// const WIDTH : i16 = 300;
-    /// const HEIGHT : i16 = 400;
+    /// const WIDTH : i16 = 30;
+    /// const HEIGHT : i16 = 40;
     ///
     /// WinConsole::output().set_screen_buffer_size(Coord::new(WIDTH, HEIGHT));
     /// ```
@@ -1516,16 +1516,44 @@ impl WinConsole {
     /// see also: [https://www.randygaul.net/2011/11/16/windows-console-game-writing-to-the-console/]
     ///
     /// - `buffer_size`: the size of the `buffer` in rows and columns.
-    /// - `buffer_start`: the origin in the `buffer` where start to take the characters to write.
+    /// - `buffer_start`: the origin in the `buffer` where start to take the characters to write, typically (0,0).
     /// - `write_area`: Represents the screen buffer area to write to.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::structs::coord::Coord;
+    /// use win32console::structs::console_screen_buffer_info::SmallRect;
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::char_info::CharInfo;
+    /// const WIDTH : usize = 40;
+    /// const HEIGHT : usize = 30;
+    ///
+    /// let mut buffer = Vec::with_capacity(WIDTH * HEIGHT);
+    /// let buffer_size = Coord::new(WIDTH as i16, HEIGHT as i16);
+    /// let window = SmallRect::new(0, 0, (WIDTH - 1) as i16, (HEIGHT - 1) as i16);
+    ///
+    /// WinConsole::output().set_console_window_info(true, &window).unwrap();
+    /// WinConsole::output().set_screen_buffer_size(buffer_size.clone()).unwrap();
+    ///
+    /// for i in 0..buffer.capacity(){
+    ///    let char_info = CharInfo::new(' ', (16 << (x + y) % 3) as u16);
+    ///     buffer.push(char_info);
+    /// }
+    ///
+    /// WinConsole::output().write_char_buffer(buffer.as_ref(), buffer_size, Coord::ZERO, window).unwrap();
+    /// ```
     pub fn write_char_buffer(&self, buffer: &[CharInfo], buffer_size: Coord, buffer_start: Coord, write_area: SmallRect) -> Result<()>{
         let handle = self.get_handle();
         let write_area_raw: PSMALL_RECT = &mut write_area.into();
 
+        let mut buf = buffer.iter()
+            .map(|c| (*c).into())
+            .collect::<Vec<CHAR_INFO>>();
+
         unsafe{
             if WriteConsoleOutputW(
                 *handle,
-                buffer.as_ptr() as PCHAR_INFO,
+                buf.as_ptr() as PCHAR_INFO,
                 buffer_size.into(),
                 buffer_start.into(),
                 write_area_raw) == 0{
