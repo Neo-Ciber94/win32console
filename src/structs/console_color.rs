@@ -1,7 +1,5 @@
-use crate::console::WinConsole;
 use std::convert::TryFrom;
-use std::fmt::{Display, Error, Formatter, Write};
-use winapi::_core::convert::TryInto;
+use std::fmt::{Display, Error, Formatter };
 
 /// Represents a color for the windows console.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

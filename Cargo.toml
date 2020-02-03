@@ -10,3 +10,6 @@ edition = "2018"
 
 [dependencies]
 winapi = {version="0.3.8", features=["winnt", "handleapi", "processenv", "winbase", "fileapi", "wincon", "minwindef", "wingdi", "wincontypes", "consoleapi"]}
+
+[dev-dependencies]
+# examples = { path = "examples" }

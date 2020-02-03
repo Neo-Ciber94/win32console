@@ -3,9 +3,8 @@ use std::iter;
 use std::slice;
 use std::mem::{transmute, MaybeUninit};
 use std::str;
-use std::sync::Arc;
 
-use winapi::_core::ptr::{null, null_mut};
+use winapi::_core::ptr::{null_mut};
 use winapi::ctypes::c_void;
 use winapi::shared::minwindef::{FALSE, MAX_PATH};
 use winapi::um::consoleapi::{
@@ -16,7 +15,7 @@ use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::processenv::{GetStdHandle, SetStdHandle};
 use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo, CHAR_INFO, CHAR_INFO_Char};
+use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo, CHAR_INFO };
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
 use winapi::um::wincon::{
@@ -24,7 +23,7 @@ use winapi::um::wincon::{
     GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
     GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
     SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
-    SetConsoleTitleW, SetCurrentConsoleFontEx, WriteConsoleOutputCharacterW, CONSOLE_FONT_INFOEX,
+    SetConsoleTitleW, SetCurrentConsoleFontEx, CONSOLE_FONT_INFOEX,
     INPUT_RECORD,
 };
 use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE};
@@ -370,9 +369,16 @@ impl WinConsole {
     /// Basic usages:
     /// ```
     /// use win32console::console::WinConsole;
-    /// let provider = WinConsole::current_output;
-    /// let console = WinConsole::from(provider);
-    /// /// Read using the handle
+    /// use win32console::structs::handle::Handle;
+    /// use winapi::um::processenv::GetStdHandle;
+    /// use winapi::um::winbase::STD_INPUT_HANDLE;
+    ///
+    /// fn get_handle() -> Handle {
+    ///     // Using winapi
+    ///     let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+    ///     Handle::from_raw(handle)
+    /// }
+    /// let console = WinConsole::from(get_handle);
     /// ```
     pub fn from<F>(handle_provider: F) -> WinConsole
     where
@@ -384,7 +390,7 @@ impl WinConsole {
     }
 }
 
-/// Public methods
+// Public methods
 impl WinConsole {
     /// Gets the handle used for this console, which will be provided by the `handle_provider`.
     pub fn get_handle(&self) -> Handle {
@@ -937,17 +943,15 @@ impl WinConsole {
     /// WinConsole::output().clear();
     /// ```
     pub fn clear(&self) -> Result<()> {
-        unsafe {
-            let mut info = self.get_console_screen_buffer_info()?;
-            let size = info.screen_buffer_size;
-            let length: u32 = size.x as u32 * size.y as u32;
-            self.fill_with_char(Coord::default(), length, ' ')?;
+        let info = self.get_console_screen_buffer_info()?;
+        let size = info.screen_buffer_size;
+        let length: u32 = size.x as u32 * size.y as u32;
+        self.fill_with_char(Coord::default(), length, ' ')?;
 
-            self.fill_with_attribute(Coord::default(), length, info.attributes);
-            self.set_cursor_position(Coord::default());
+        self.fill_with_attribute(Coord::default(), length, info.attributes)?;
+        self.set_cursor_position(Coord::default())?;
 
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Fills the content of the console with the specified [char].
@@ -1447,7 +1451,7 @@ impl WinConsole {
                     chr.encode_utf8(&mut buffer[written..]);
                     written += 1;
                 }
-                Err(e) => {
+                Err(_) => {
                     return Err(Error::new(
                         ErrorKind::InvalidData,
                         "utf16 string not supported",
@@ -1665,7 +1669,7 @@ impl WinConsole {
         let handle = self.get_handle();
         let write_area_raw: PSMALL_RECT = &mut write_area.into();
 
-        let mut buf = buffer.iter()
+        let buf = buffer.iter()
             .map(|c| (*c).into())
             .collect::<Vec<CHAR_INFO>>();
 
@@ -1746,8 +1750,7 @@ impl WinConsole {
     /// WinConsole::output().set_background_color(old_bgcolor);
     /// ```
     pub fn get_background_color(&self) -> std::io::Result<ConsoleColor> {
-        let attributes = self.get_text_attribute()?;
-        let value = attributes << 4;
+        let attributes = self.get_text_attribute()? << 4;
         Ok(ConsoleColor::try_from(attributes & WinConsole::BG_COLOR_MASK)
             .ok()
             .expect(format!("Invalid color value: {}", attributes).as_ref()))

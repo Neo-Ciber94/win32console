@@ -3,6 +3,9 @@ use crate::structs::input_event::{KeyEventRecord, MouseEventRecord};
 use crate::structs::menu_event::MenuEventRecord;
 use crate::structs::window_buffer_size_event::WindowBufferSizeRecord;
 use winapi::um::wincon::INPUT_RECORD;
+use winapi::um::wincontypes::{
+    FOCUS_EVENT, KEY_EVENT, MENU_EVENT, MOUSE_EVENT, WINDOW_BUFFER_SIZE_EVENT,
+};
 
 /// Represents an [INPUT_RECORD] which describes an input event in the console input buffer.
 ///
@@ -27,7 +30,6 @@ pub enum InputRecord {
 }
 
 impl From<INPUT_RECORD> for InputRecord {
-    //noinspection ALL
     #[inline]
     fn from(record: INPUT_RECORD) -> Self {
         match record.EventType {
