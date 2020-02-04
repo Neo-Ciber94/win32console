@@ -111,3 +111,36 @@ impl Display for ConsoleColor{
         }
     }
 }
+
+#[cfg(test)]
+mod tests{
+    use super::ConsoleColor;
+    use crate::console::ConsoleTextAttribute;
+    use std::convert::TryFrom;
+
+    #[test]
+    fn as_foreground_test(){
+        let color = ConsoleColor::DarkRed;
+        assert_eq!(ConsoleTextAttribute::FOREGROUND_RED, color.as_foreground_color());
+    }
+
+    #[test]
+    fn as_background_test(){
+        let color = ConsoleColor::DarkRed;
+        assert_eq!(ConsoleTextAttribute::BACKGROUND_RED, color.as_background_color());
+    }
+
+    #[test]
+    fn try_from_test1(){
+        let color = ConsoleColor::try_from(4).ok();
+        assert!(color.is_some());
+        assert_eq!(ConsoleColor::DarkRed, color.unwrap())
+    }
+
+    #[test]
+    fn try_from_test2(){
+        let color = ConsoleColor::try_from(12).ok();
+        assert!(color.is_some());
+        assert_eq!(ConsoleColor::Red, color.unwrap())
+    }
+}
