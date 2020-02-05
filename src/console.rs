@@ -386,34 +386,6 @@ impl WinConsole {
             handle_provider: Box::new(get_output_handle),
         }
     }
-
-    /// Gets a console with the specified handle provider.
-    /// The function should return a valid handle after each call.
-    ///
-    /// # Examples
-    ///
-    /// Basic usages:
-    /// ```
-    /// use win32console::console::WinConsole;
-    /// use win32console::structs::handle::Handle;
-    /// use winapi::um::processenv::GetStdHandle;
-    /// use winapi::um::winbase::STD_INPUT_HANDLE;
-    ///
-    /// fn get_handle() -> Handle {
-    ///     // Using winapi
-    ///     let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
-    ///     Handle::from_raw(handle)
-    /// }
-    /// let console = WinConsole::from(get_handle);
-    /// ```
-    pub fn from<F>(handle_provider: F) -> WinConsole
-    where
-        F: 'static + Sized + Fn() -> Handle,
-    {
-        WinConsole {
-            handle_provider: Box::new(handle_provider),
-        }
-    }
 }
 
 // Public methods

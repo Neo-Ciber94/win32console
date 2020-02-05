@@ -6,19 +6,19 @@ use winapi::um::winnt::HANDLE;
 /// Wraps a windows [HANDLE].
 #[derive(Debug, Clone)]
 pub struct Handle {
-    inner: Arc<Inner>,
+    inner: RawHandle,
 }
 
 /// Wraps the actual [HANDLE] and drop it is owned.
-#[derive(Debug)]
-struct Inner {
+#[derive(Debug, Clone)]
+struct RawHandle {
     handle: HANDLE,
     ownership: HandleOwnership,
 }
 
 // Synchronize the [Inner].
-unsafe impl Send for Inner {}
-unsafe impl Sync for Inner {}
+unsafe impl Send for RawHandle {}
+unsafe impl Sync for RawHandle {}
 
 /// Represents the ownership of a `HANDLE`.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -29,7 +29,7 @@ enum HandleOwnership {
     Shared,
 }
 
-impl Drop for Inner {
+impl Drop for RawHandle {
     fn drop(&mut self) {
         if self.ownership == HandleOwnership::Owned {
             assert!(
@@ -56,10 +56,10 @@ impl Handle {
     /// ```
     pub fn from_raw(handle: HANDLE) -> Handle {
         Handle {
-            inner: Arc::new(Inner {
+            inner: RawHandle {
                 handle,
-                ownership: HandleOwnership::Shared,
-            }),
+                ownership: HandleOwnership::Shared
+            },
         }
     }
 
@@ -90,10 +90,10 @@ impl Handle {
     /// ```
     pub fn new_closeable(handle: HANDLE) -> Handle {
         Handle {
-            inner: Arc::new(Inner {
+            inner: RawHandle {
                 handle,
-                ownership: HandleOwnership::Owned,
-            }),
+                ownership: HandleOwnership::Owned
+            },
         }
     }
 
