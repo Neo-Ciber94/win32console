@@ -10,14 +10,26 @@ const ENTER : u16 = 0x0D;
 const SPACE : u16 = 0x20;
 
 fn main() {
+    // Clears the screen
     WinConsole::output().clear();
 
+    // Writes to the screen using the color 'Dark Red'
     write_color_str("What's your name? ", ConsoleColor::DarkRed);
+
+    // Stores the result of the read_string() function
     let name = with_color(ConsoleColor::Green, read_string);
-    write_color_string(format!("\nHello {}!", name), ConsoleColor::DarkBlue);
+
+    // Writes to the screen a message depending if 'name' is blank or not
+    if name.is_not_blank(){
+        write_color_string(format!("\nHello {}!", name), ConsoleColor::DarkBlue);
+    }
+    else{
+        write_color_str("\nWait, what?", ConsoleColor::DarkBlue);
+    }
 }
 
 fn read_string() -> String{
+    // The buffer to store the string to write
     let mut buffer: String = String::new();
 
     loop{
@@ -28,20 +40,26 @@ fn read_string() -> String{
                 let uchar = key.u_char;
                 // Write only if is alphanumeric or punctuation
                 if uchar.is_ascii_alphanumeric() || uchar.is_ascii_punctuation(){
+                    // Writes the char to the screen and push it to the string buffer
                     write_char(uchar);
                     buffer.push(uchar);
                 }
                 else{
                     match key.virtual_key_code {
-                        ESCAPE => { break; },
-                        ENTER => { break; }
+                        ESCAPE => { break; },   // Exit on [ESC] press
+                        ENTER => { break; }     // Exit on [Enter] press
                         SPACE => {
+                            // Write the whitespace to the screen and string buffer
                             WinConsole::output().write_utf8(" ".as_bytes());
                             buffer.push(' ');
                         },
                         BACKSPACE => {
-                            WinConsole::output().write_utf8(b"\x08 \x08");
-                            buffer.pop();
+                            // If the buffer is not empty removes the last char from the screen
+                            // and string buffer.
+                            if !buffer.is_empty(){
+                                WinConsole::output().write_utf8(b"\x08 \x08");
+                                buffer.pop();
+                            }
                         },
                         _ => {}
                     }
@@ -55,29 +73,89 @@ fn read_string() -> String{
 }
 
 fn write_char(char_value: char){
-    let mut value : [u8; 1] = [0];
-    char_value.encode_utf8(&mut value);
-    WinConsole::output().write_utf8(&value);
+    // The buffer to store the char
+    let mut buffer = [0u8; 1];
+    // Store the encode value to teh buffer
+    char_value.encode_utf8(&mut buffer);
+    // Write the utf8 buffer to the screen
+    WinConsole::output().write_utf8(&buffer);
 }
 
 fn write_color_str(value: &str, color: ConsoleColor){
+    // Stores the old color
     let old_color = WinConsole::output().get_foreground_color().unwrap();
+
+    // Sets the new color
     WinConsole::output().set_foreground_color(color);
+    // Write with the new color
     WinConsole::output().write_utf8(value.as_bytes());
+    // Resets the color
     WinConsole::output().set_foreground_color(old_color);
 }
 
 fn write_color_string(value: String, color: ConsoleColor){
+    // Stores the old color
     let old_color = WinConsole::output().get_foreground_color().unwrap();
+
+    // Sets the new color
     WinConsole::output().set_foreground_color(color);
+    // Write with the new color
     WinConsole::output().write_utf8(value.as_bytes());
+    // Resets the color
     WinConsole::output().set_foreground_color(old_color);
 }
 
 fn with_color<R : Sized, F : Fn() -> R>(color: ConsoleColor, func: F) -> R{
+    // Stores the old color
     let old_color = WinConsole::output().get_foreground_color().unwrap();
+
+    // Sets the new color
     WinConsole::output().set_foreground_color(color);
+    // Calls the function that may try to write using WinConsole
     let result = func();
+    // Resets the color
     WinConsole::output().set_foreground_color(old_color);
+
+    // Returns the result provided by the function
     result
+}
+
+trait IsBlank{
+    fn is_blank(&self) -> bool;
+
+    #[inline]
+    fn is_not_blank(&self) -> bool{
+        !self.is_blank()
+    }
+}
+
+impl IsBlank for String{
+    fn is_blank(&self) -> bool {
+        self.len() == 0 || self.chars().all(|c| c.is_whitespace())
+    }
+}
+
+impl IsBlank for str{
+    fn is_blank(&self) -> bool {
+        self.len() == 0 || self.chars().all(|c| c.is_whitespace())
+    }
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn is_blank_str_test(){
+        assert!(!"Hello\n".is_blank());
+        assert!("    ".is_blank());
+        assert!("\t\t  ".is_blank());
+    }
+
+    #[test]
+    fn is_blank_string_test(){
+        assert!(!String::from("Hello\n").is_blank());
+        assert!(String::from("    ").is_blank());
+        assert!(String::from("\t\t  ").is_blank());
+    }
 }

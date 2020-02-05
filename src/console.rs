@@ -1743,20 +1743,25 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_read_control::ConsoleReadControl;
     ///
-    /// const CTRL_Z: u8 = 0x1A;
+    /// const CTRL_Z: u8 = 26;
     /// const CTRL_Z_MASK: u32 = (1 << CTRL_Z) as u32;
     ///
     /// let control = ConsoleReadControl::new_with_mask(CTRL_Z_MASK);
-    /// let mut buffer : [u8 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
-    /// let mut len = WinConsole::input().read_utf8_with_control(&mut buffer, control);
+    /// let mut buffer : [u8 ; 32] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// let mut len = WinConsole::input().read_utf8_with_control(&mut buffer, control).unwrap();
     ///
     /// // If the last character is the control signal we ignore it.
     /// if len > 0 && buffer[len - 1] == CTRL_Z{
     ///     len -= 1;
     /// }
     ///
-    /// let string = String::from_utf8_lossy(&buffer[..len]);
-    /// WinConsole::output().write_utf16(string.encode_utf16().collect::<Vec<u16>>().as_slice());
+    /// let string = String::from_utf8_lossy(&buffer[..len])
+    ///                     .trim() // String terminated in newline
+    ///                     .to_string();
+    ///
+    /// // buffer is terminated in '\r\n', assertion will fail when write 32 characters
+    /// assert_eq!(len - 2, string.len());
+    /// WinConsole::output().write_utf8(string.as_bytes());
     /// ```
     pub fn read_utf8_with_control(&self, buffer: &mut [u8], control: ConsoleReadControl) -> Result<usize>{
         if buffer.len() == 0{
@@ -1791,12 +1796,25 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_read_control::ConsoleReadControl;
     ///
-    /// const CTRL_Z: u16 = 0x1A;
+    /// const CTRL_Z: u16 = 26;
     /// const CTRL_Z_MASK: u32 = (1 << CTRL_Z) as u32;
     ///
     /// let control = ConsoleReadControl::new_with_mask(CTRL_Z_MASK);
-    /// let mut buffer : [u16 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
-    /// WinConsole::input().read_utf16_with_control(&mut buffer, control);
+    /// let mut buffer : [u16 ; 32] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// let mut len = WinConsole::input().read_utf16_with_control(&mut buffer, control).unwrap();
+    ///
+    /// // If the last character is the control signal we ignore it.
+    /// if len > 0 && buffer[len - 1] == CTRL_Z{
+    ///     len -= 1;
+    /// }
+    ///
+    /// let string = String::from_utf16_lossy(&buffer[..len])
+    ///                     .trim() // String terminated in newline
+    ///                     .to_string();
+    ///
+    /// // buffer is terminated in '\r\n', assertion will fail when write 32 characters
+    /// assert_eq!(len - 2, string.len());
+    /// WinConsole::output().write_utf8(string.as_bytes());
     /// ```
     pub fn read_utf16_with_control(&self, buffer: &mut [u16], control: ConsoleReadControl) -> Result<usize>{
         if buffer.len() == 0{
