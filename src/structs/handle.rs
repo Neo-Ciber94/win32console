@@ -1,15 +1,14 @@
 use std::ops::Deref;
-use std::sync::Arc;
-use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
-use winapi::um::winnt::HANDLE;
+use winapi::{
+    um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE},
+    um::winnt::HANDLE
+};
 
 /// Wraps a windows [HANDLE].
 #[derive(Debug, Clone)]
-pub struct Handle {
-    inner: RawHandle,
-}
+pub struct Handle(RawHandle);
 
-/// Wraps the actual [HANDLE] and drop it is owned.
+/// Wraps the actual [HANDLE] and drop if owned.
 #[derive(Debug, Clone)]
 struct RawHandle {
     handle: HANDLE,
@@ -32,10 +31,7 @@ enum HandleOwnership {
 impl Drop for RawHandle {
     fn drop(&mut self) {
         if self.ownership == HandleOwnership::Owned {
-            assert!(
-                unsafe { CloseHandle(self.handle) != 0 },
-                "Cannot close the handle"
-            )
+            assert!(unsafe { CloseHandle(self.handle) != 0 }, "Cannot close the handle")
         }
     }
 }
@@ -51,16 +47,11 @@ impl Handle {
     /// use winapi::um::processenv::GetStdHandle;
     /// use win32console::structs::handle::Handle;
     ///
-    /// let handle = Handle::from_raw(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
+    /// let handle = Handle::new(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
     /// assert!(handle.is_valid());
     /// ```
-    pub fn from_raw(handle: HANDLE) -> Handle {
-        Handle {
-            inner: RawHandle {
-                handle,
-                ownership: HandleOwnership::Shared
-            },
-        }
+    pub fn new(handle: HANDLE) -> Handle {
+        Handle(RawHandle { handle, ownership: HandleOwnership::Shared })
     }
 
     /// Creates a new `Handle` from the specified which will be close
@@ -77,7 +68,7 @@ impl Handle {
     /// use std::ptr::null_mut;
     ///
     /// let file_name: Vec<u16> = "CONIN$\0".encode_utf16().collect();
-    /// let handle = Handle::new_closeable(unsafe { CreateFileW(
+    /// let handle = Handle::new_owned(unsafe { CreateFileW(
     ///                file_name.as_ptr(),
     ///                GENERIC_READ | GENERIC_WRITE,
     ///                FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -88,13 +79,8 @@ impl Handle {
     ///            ) });
     /// assert_ne!(*handle, INVALID_HANDLE_VALUE);
     /// ```
-    pub fn new_closeable(handle: HANDLE) -> Handle {
-        Handle {
-            inner: RawHandle {
-                handle,
-                ownership: HandleOwnership::Owned
-            },
-        }
+    pub fn new_owned(handle: HANDLE) -> Handle {
+        Handle(RawHandle { handle, ownership: HandleOwnership::Owned })
     }
 
     /// Gets a reference to the underlying `HANDLE`.
@@ -109,12 +95,13 @@ impl Handle {
     /// use winapi::um::winnt::HANDLE;
     /// use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     ///
-    /// let handle = Handle::from_raw(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
+    /// let handle = Handle::new(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
     /// let raw_handle = handle.get_raw();
-    /// assert_ne!(*raw_handle, INVALID_HANDLE_VALUE);
+    /// assert_ne!(raw_handle, INVALID_HANDLE_VALUE);
     /// ```
-    pub fn get_raw(&self) -> &HANDLE {
-        &self.inner.handle
+    #[inline]
+    pub fn get_raw(&self) -> HANDLE {
+        self.0.handle
     }
 
     /// Compare this handle to [INVALID_HANDLE_VALUE] to determines if the handle is valid.
@@ -128,11 +115,11 @@ impl Handle {
     /// use winapi::um::winbase::STD_INPUT_HANDLE;
     /// use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     ///
-    /// let handle = Handle::from_raw(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
+    /// let handle = Handle::new(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
     /// assert!(handle.is_valid());
     /// ```
     pub fn is_valid(&self) -> bool {
-        if self.inner.handle == INVALID_HANDLE_VALUE {
+        if self.0.handle == INVALID_HANDLE_VALUE {
             return false;
         }
 
@@ -145,6 +132,6 @@ impl Deref for Handle {
 
     /// Gets a reference to the underlying [HANDLE].
     fn deref(&self) -> &Self::Target {
-        &self.inner.handle
+        &self.0.handle
     }
 }

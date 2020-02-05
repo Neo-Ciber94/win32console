@@ -56,6 +56,7 @@ use crate::{
     structs::console_read_control::ConsoleReadControl,
     structs::console_font_info::ConsoleFontInfo
 };
+use winapi::um::consoleapi::WriteConsoleA;
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -212,7 +213,7 @@ impl WinConsole {
                 return Err(Error::from_raw_os_error(0x6));
             }
 
-            Ok(Handle::from_raw(raw_handle))
+            Ok(Handle::new(raw_handle))
         }
     }
 
@@ -261,7 +262,7 @@ impl WinConsole {
             return Err(Error::from_raw_os_error(0x6));
         }
 
-        Ok(Handle::new_closeable(raw_handle))
+        Ok(Handle::new_owned(raw_handle))
     }
 
     /// Creates a Handle to the standard output file [CONOUT$], if the input
@@ -295,7 +296,7 @@ impl WinConsole {
             return Err(Error::from_raw_os_error(0x6));
         }
 
-        Ok(Handle::new_closeable(raw_handle))
+        Ok(Handle::new_owned(raw_handle))
     }
 }
 
@@ -1792,7 +1793,7 @@ impl WinConsole {
 
     /// Writes the specified `[u8]` buffer of chars in the current cursor position of the console.
     ///
-    /// Wraps a call to [WriteConsoleW]
+    /// Wraps a call to [WriteConsoleA]
     /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsole]
     ///
     /// # Returns
@@ -1808,14 +1809,44 @@ impl WinConsole {
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     /// ```
     pub fn write_utf8(&self, data: &[u8]) -> Result<usize> {
-        let chars = match str::from_utf8(data) {
-            Ok(values) => values.encode_utf16().collect::<Vec<u16>>(),
-            Err(e) => {
-                return Err(Error::new(std::io::ErrorKind::InvalidInput, e));
-            }
-        };
+        let handle = self.get_handle();
+        let mut chars_written = 0;
 
-        self.write_utf16(chars.as_slice())
+        // If is being redirected write to the handle
+        if !WinConsole::is_console(&handle) {
+            let buf = match String::from_utf8(data.to_vec()) {
+                Ok(string) => string,
+                Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
+            };
+
+            unsafe {
+                if WriteFile(
+                    *handle,
+                    buf.as_ptr() as *const c_void,
+                    data.len() as u32,
+                    &mut chars_written,
+                    null_mut()) == 0{
+                    return Err(Error::last_os_error());
+                }
+            }
+            return Ok(data.len());
+        }
+
+        unsafe {
+            if WriteConsoleA(
+                *handle,
+                data.as_ptr() as *const c_void,
+                data.len() as u32,
+                &mut chars_written,
+                null_mut(),
+            ) == 0
+            {
+                Err(Error::last_os_error())
+            } else {
+                assert_eq!(chars_written, data.len() as u32);
+                Ok(chars_written as usize)
+            }
+        }
     }
 
     /// Writes the specified buffer of chars in the current cursor position of the console.
