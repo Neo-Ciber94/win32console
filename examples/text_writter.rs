@@ -116,7 +116,7 @@ fn write_color(value: &str, color: ConsoleColor) {
 fn save_file() -> Result<()> {
     write_color("File name: ", ConsoleColor::DarkYellow);
 
-    let temp = WinConsole::input().read().unwrap().trim().to_string();
+    let temp = WinConsole::input().read_string().unwrap().trim().to_string();
     if temp.is_not_blank() {
         use std::fs::File;
 

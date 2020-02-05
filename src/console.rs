@@ -56,7 +56,7 @@ use crate::{
     structs::console_read_control::ConsoleReadControl,
     structs::console_font_info::ConsoleFontInfo
 };
-use winapi::um::consoleapi::WriteConsoleA;
+use winapi::um::consoleapi::{WriteConsoleA, ReadConsoleA};
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -70,7 +70,7 @@ use winapi::um::consoleapi::WriteConsoleA;
 /// use win32console::console::WinConsole;
 ///
 /// WinConsole::output().write_utf8("What's your name?".as_bytes()).unwrap();
-/// let name = WinConsole::input().read().unwrap();
+/// let name = WinConsole::input().read_string().unwrap();
 /// WinConsole::output().write_utf8(format!("Oh, Hello {}!", name.trim()).as_ref()).unwrap();
 /// ```
 pub struct WinConsole {
@@ -649,34 +649,118 @@ impl WinConsole {
         (&self.handle_provider)()
     }
 
-    /// Sets extended information about the console font.
-    /// This function change the font into of all the current values in the console.
+    /// Gets the current mode of the console
     ///
-    /// Wraps a call to [SetCurrentConsoleFontEx]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setcurrentconsolefontex]
+    /// Wraps a call to [GetConsoleMode]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolemode]
     ///
     /// # Errors
-    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
-    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    /// - No documented errors.
     ///
     /// # Examples
     /// ```
-    /// use win32console::console::{WinConsole, FontInfoSource};
+    /// use win32console::console::{WinConsole, ConsoleMode};
     ///
-    /// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
-    /// let mut new_info = old_info;
-    /// new_info.font_weight = 800; //Bold font
-    /// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
-    /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
+    /// let old_mode = WinConsole::input().get_mode().unwrap();
+    /// let new_mode = ConsoleMode::ENABLE_PROCESSED_INPUT | ConsoleMode::ENABLE_LINE_INPUT;
+    /// // We change the input mode so the characters are not displayed
+    /// WinConsole::input().set_mode(new_mode);
     ///
-    /// //  WinConsole::output().set_console_font_info(old_info).unwrap();
-    /// // DON'T WILL SHOW BOTH `BOLD` AND `NORMAL` FONT!!
-    ///
-    /// // If we try to restore the old_info the new changes don't will be visible due
-    /// // this method changes the font info of all the characters being displayed in the console
+    /// let value = WinConsole::input().read_string().unwrap(); // Don't will be displayed due new mode
+    /// WinConsole::output().write_utf8(value.as_bytes());
+    /// WinConsole::input().set_mode(old_mode); // Reset the mode
     /// ```
+    pub fn get_mode(&self) -> Result<u32> {
+        let handle = self.get_handle();
+        let mut mode = 0;
+
+        unsafe {
+            if GetConsoleMode(*handle, &mut mode) != 0 {
+                Ok(mode)
+            } else {
+                Err(Error::last_os_error())
+            }
+        }
+    }
+
+    /// Sets the current mode of the console
     ///
-    /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
+    /// Wraps a call to [GetConsoleMode]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolemode]
+    ///
+    /// # Errors
+    /// - No documented errors.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleMode};
+    ///
+    /// let old_mode = WinConsole::input().get_mode().unwrap();
+    /// let new_mode = ConsoleMode::ENABLE_PROCESSED_INPUT | ConsoleMode::ENABLE_LINE_INPUT;
+    /// // We change the input mode so the characters are not displayed
+    /// WinConsole::input().set_mode(new_mode);
+    ///
+    /// let value = WinConsole::input().read_string().unwrap(); // Don't will be displayed due new mode
+    /// WinConsole::output().write_utf8(value.as_bytes());
+    /// WinConsole::input().set_mode(old_mode); // Reset the mode
+    /// ```
+    pub fn set_mode(&self, mode: u32) -> Result<()> {
+        let handle = self.get_handle();
+
+        unsafe {
+            if SetConsoleMode(*handle, mode) != 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        }
+    }
+
+    /// Checks if the console have the specified mode.
+    ///
+    /// # Errors
+    /// - No documented errors.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleMode};
+    /// assert!(WinConsole::input().has_mode(ConsoleMode::ENABLE_PROCESSED_INPUT).unwrap());
+    /// ```
+    pub fn has_mode(&self, mode: u32) -> Result<bool> {
+        match self.get_mode() {
+            Ok(state) => Ok((state & mode) != 0),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Sets extended information about the console font.
+/// This function change the font into of all the current values in the console.
+///
+/// Wraps a call to [SetCurrentConsoleFontEx]
+/// link: [https://docs.microsoft.com/en-us/windows/console/setcurrentconsolefontex]
+///
+/// # Errors
+/// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+/// the function should be called using `WinConsole::output()` or a valid output handle.
+///
+/// # Examples
+/// ```
+/// use win32console::console::{WinConsole, FontInfoSource};
+///
+/// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
+/// let mut new_info = old_info;
+/// new_info.font_weight = 800; //Bold font
+/// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
+/// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
+///
+/// //  WinConsole::output().set_console_font_info(old_info).unwrap();
+/// // DON'T WILL SHOW BOTH `BOLD` AND `NORMAL` FONT!!
+///
+/// // If we try to restore the old_info the new changes don't will be visible due
+/// // this method changes the font info of all the characters being displayed in the console
+/// ```
+///
+/// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
     pub fn set_font_info_ex(&self, info: ConsoleFontInfoEx, source: FontInfoSource) -> Result<()> {
         let handle = self.get_handle();
         let mut info = info.into();
@@ -751,90 +835,6 @@ impl WinConsole {
             } else {
                 Ok(ConsoleFontInfoEx::from(&info))
             }
-        }
-    }
-
-    /// Gets the current mode of the console
-    ///
-    /// Wraps a call to [GetConsoleMode]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolemode]
-    ///
-    /// # Errors
-    /// - No documented errors.
-    ///
-    /// # Examples
-    /// ```
-    /// use win32console::console::{WinConsole, ConsoleMode};
-    ///
-    /// let old_mode = WinConsole::input().get_mode().unwrap();
-    /// let new_mode = ConsoleMode::ENABLE_PROCESSED_INPUT | ConsoleMode::ENABLE_LINE_INPUT;
-    /// // We change the input mode so the characters are not displayed
-    /// WinConsole::input().set_mode(new_mode);
-    ///
-    /// let value = WinConsole::input().read().unwrap(); // Don't will be displayed due new mode
-    /// WinConsole::output().write_utf8(value.as_bytes());
-    /// WinConsole::input().set_mode(old_mode); // Reset the mode
-    /// ```
-    pub fn get_mode(&self) -> Result<u32> {
-        let handle = self.get_handle();
-        let mut mode = 0;
-
-        unsafe {
-            if GetConsoleMode(*handle, &mut mode) != 0 {
-                Ok(mode)
-            } else {
-                Err(Error::last_os_error())
-            }
-        }
-    }
-
-    /// Sets the current mode of the console
-    ///
-    /// Wraps a call to [GetConsoleMode]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolemode]
-    ///
-    /// # Errors
-    /// - No documented errors.
-    ///
-    /// # Examples
-    /// ```
-    /// use win32console::console::{WinConsole, ConsoleMode};
-    ///
-    /// let old_mode = WinConsole::input().get_mode().unwrap();
-    /// let new_mode = ConsoleMode::ENABLE_PROCESSED_INPUT | ConsoleMode::ENABLE_LINE_INPUT;
-    /// // We change the input mode so the characters are not displayed
-    /// WinConsole::input().set_mode(new_mode);
-    ///
-    /// let value = WinConsole::input().read().unwrap(); // Don't will be displayed due new mode
-    /// WinConsole::output().write_utf8(value.as_bytes());
-    /// WinConsole::input().set_mode(old_mode); // Reset the mode
-    /// ```
-    pub fn set_mode(&self, mode: u32) -> Result<()> {
-        let handle = self.get_handle();
-
-        unsafe {
-            if SetConsoleMode(*handle, mode) != 0 {
-                Ok(())
-            } else {
-                Err(std::io::Error::last_os_error())
-            }
-        }
-    }
-
-    /// Checks if the console have the specified mode.
-    ///
-    /// # Errors
-    /// - No documented errors.
-    ///
-    /// # Example
-    /// ```
-    /// use win32console::console::{WinConsole, ConsoleMode};
-    /// assert!(WinConsole::input().has_mode(ConsoleMode::ENABLE_PROCESSED_INPUT).unwrap());
-    /// ```
-    pub fn has_mode(&self, mode: u32) -> Result<bool> {
-        match self.get_mode() {
-            Ok(state) => Ok((state & mode) != 0),
-            Err(error) => Err(error),
         }
     }
 
@@ -1258,6 +1258,7 @@ impl WinConsole {
     /// ```
     pub fn set_text_attribute(&self, attribute: u16) -> Result<()> {
         let handle = self.get_handle();
+
         unsafe {
             if SetConsoleTextAttribute(*handle, attribute) != 0 {
                 Ok(())
@@ -1442,10 +1443,7 @@ impl WinConsole {
             return Ok(vec![]);
         }
 
-        let mut buffer: Vec<InputRecord> =
-            iter::repeat_with(unsafe { || std::mem::zeroed::<InputRecord>() })
-                .take(buffer_size)
-                .collect();
+        let mut buffer = vec![unsafe { std::mem::zeroed::<InputRecord>()}; buffer_size];
 
         self.read_input(buffer.as_mut_slice())?;
         Ok(buffer)
@@ -1485,15 +1483,17 @@ impl WinConsole {
     /// WinConsole::output().write_utf8(buf.as_bytes());
     /// ```
     pub fn read_input(&self, records: &mut [InputRecord]) -> Result<usize> {
+        if records.len() == 0{
+            return Ok(0);
+        }
+
         let handle = self.get_handle();
         let num_records = records.len();
         let mut num_events = 0;
 
-        unsafe {
-            let mut buf = iter::repeat_with(|| std::mem::zeroed::<INPUT_RECORD>())
-                .take(num_records)
-                .collect::<Vec<INPUT_RECORD>>();
+        let mut buf = vec![unsafe { std::mem::zeroed::<INPUT_RECORD>() }; num_records];
 
+        unsafe {
             if ReadConsoleInputW(
                 *handle,
                 buf.as_mut_ptr(),
@@ -1550,6 +1550,10 @@ impl WinConsole {
     /// WinConsole::output().write_utf8(buf.as_bytes());
     /// ```
     pub fn peek_input(&self, records: &mut [InputRecord]) -> Result<usize> {
+        if records.len() == 0{
+            return Ok(0);
+        }
+
         let handle = self.get_handle();
         let num_records = records.len();
         let mut num_events = 0;
@@ -1592,10 +1596,10 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     ///
     /// WinConsole::output().write_utf8("What's your name? ".as_bytes());
-    /// let value = WinConsole::input().read().unwrap();
+    /// let value = WinConsole::input().read_string().unwrap();
     /// WinConsole::output().write_utf8(format!("Hello {}", value).as_bytes());
     /// ```
-    pub fn read(&self) -> Result<String> {
+    pub fn read_string(&self) -> Result<String> {
         // Used buffer size from:
         // https://source.dot.net/#System.Console/System/Console.cs,dac049f8d10df4a0
         const MAX_BUFFER_SIZE: usize = 4096;
@@ -1604,7 +1608,7 @@ impl WinConsole {
         let chars_read = self.read_utf16(&mut buffer)?;
 
         match String::from_utf16(buffer[..chars_read].as_ref()) {
-            Ok(s) => Ok(s),
+            Ok(string) => Ok(string),
             Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
         }
     }
@@ -1626,29 +1630,15 @@ impl WinConsole {
     /// WinConsole::input().read_utf8(&mut buffer);
     /// ```
     pub fn read_utf8(&self, buffer: &mut [u8]) -> Result<usize> {
-        let mut utf16_buffer = iter::repeat_with(u16::default)
-            .take(buffer.len())
-            .collect::<Vec<u16>>();
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
+        let mut utf16_buffer = vec![u16::default(); buffer.len()];
 
         // Writes the read data to the 'utf16_buffer'.
         self.read_utf16(&mut utf16_buffer)?;
-
-        let mut written = 0;
-        for chr in std::char::decode_utf16(utf16_buffer) {
-            match chr {
-                Ok(chr) => {
-                    chr.encode_utf8(&mut buffer[written..]);
-                    written += 1;
-                }
-                Err(_) => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        "utf16 string not supported",
-                    ));
-                }
-            }
-        }
-
+        let written = WinConsole::utf16_to_utf8(&utf16_buffer, buffer)?;
         Ok(written)
     }
 
@@ -1672,6 +1662,10 @@ impl WinConsole {
     /// WinConsole::input().read_utf16(&mut buffer);
     /// ```
     pub fn read_utf16(&self, buffer: &mut [u16]) -> Result<usize> {
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
         // https://github.com/rust-lang/rust/blob/master/src/libstd/sys/windows/stdio.rs
         // https://stackoverflow.com/questions/43836040/win-api-readconsole
         const CTRL_Z: u16 = 0x1A;
@@ -1727,6 +1721,54 @@ impl WinConsole {
         }
     }
 
+    /// Fills the given `[u8]` buffer with characters from the standard input using the specified
+    /// console read control.
+    ///
+    /// - `control`: provides information used for a read operation as the number of chars
+    /// to skip or the end signal.
+    ///
+    /// Wraps a call to [ReadConsoleA]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    ///
+    /// # Returns
+    /// The number of characters read.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
+    /// the function should be called using `WinConsole::input()` or a valid input handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_read_control::ConsoleReadControl;
+    ///
+    /// const CTRL_Z: u8 = 0x1A;
+    /// const CTRL_Z_MASK: u32 = (1 << CTRL_Z) as u32;
+    ///
+    /// let control = ConsoleReadControl::new_with_mask(CTRL_Z_MASK);
+    /// let mut buffer : [u8 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// let mut len = WinConsole::input().read_utf8_with_control(&mut buffer, control);
+    ///
+    /// // If the last character is the control signal we ignore it.
+    /// if len > 0 && buffer[len - 1] == CTRL_Z{
+    ///     len -= 1;
+    /// }
+    ///
+    /// let string = String::from_utf8_lossy(&buffer[..len]);
+    /// WinConsole::output().write_utf16(string.encode_utf16().collect::<Vec<u16>>().as_slice());
+    /// ```
+    pub fn read_utf8_with_control(&self, buffer: &mut [u8], control: ConsoleReadControl) -> Result<usize>{
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
+        let mut utf16_buffer = vec![u16::default(); buffer.len()];
+        let written = self.read_utf16_with_control(utf16_buffer.as_mut_slice(), control)?;
+        WinConsole::utf16_to_utf8(&utf16_buffer, buffer)?;
+        Ok(written)
+    }
+
     /// Fills the given `[u16]` buffer with characters from the standard input using the specified
     /// console read control.
     ///
@@ -1747,10 +1789,20 @@ impl WinConsole {
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::console::WinConsole;
+    /// use win32console::structs::console_read_control::ConsoleReadControl;
+    ///
+    /// const CTRL_Z: u16 = 0x1A;
+    /// const CTRL_Z_MASK: u32 = (1 << CTRL_Z) as u32;
+    ///
+    /// let control = ConsoleReadControl::new_with_mask(CTRL_Z_MASK);
     /// let mut buffer : [u16 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
-    /// WinConsole::input().read_utf16(&mut buffer);
+    /// WinConsole::input().read_utf16_with_control(&mut buffer, control);
     /// ```
     pub fn read_utf16_with_control(&self, buffer: &mut [u16], control: ConsoleReadControl) -> Result<usize>{
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
         let mut input_control = control.into();
         let handle = self.get_handle();
         let mut chars_read = 0;
@@ -1809,6 +1861,10 @@ impl WinConsole {
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     /// ```
     pub fn write_utf8(&self, data: &[u8]) -> Result<usize> {
+        if data.len() == 0{
+            return Ok(0);
+        }
+
         let handle = self.get_handle();
         let mut chars_written = 0;
 
@@ -1868,6 +1924,10 @@ impl WinConsole {
     /// WinConsole::output().write_utf16(x.as_slice());
     /// ```
     pub fn write_utf16(&self, data: &[u16]) -> Result<usize> {
+        if data.len() == 0{
+            return Ok(0);
+        }
+
         let handle = self.get_handle();
         let mut chars_written = 0;
 
@@ -1950,6 +2010,10 @@ impl WinConsole {
     /// WinConsole::output().write_char_buffer(buffer.as_ref(), buffer_size, Coord::ZERO, window).unwrap();
     /// ```
     pub fn write_char_buffer(&self, buffer: &[CharInfo], buffer_size: Coord, buffer_start: Coord, write_area: SmallRect) -> Result<()>{
+        if buffer.len() == 0{
+            return Ok(());
+        }
+
         let handle = self.get_handle();
         let write_area_raw: PSMALL_RECT = &mut write_area.into();
 
@@ -1977,6 +2041,28 @@ impl WinConsole {
     pub fn is_console(handle: &Handle) -> bool {
         let mut mode = 0;
         unsafe { GetConsoleMode(**handle, &mut mode) != 0 }
+    }
+
+    /// Converts the content of the given utf16 buffer to utf8 and writes it to the
+    /// destination buffer.
+    fn utf16_to_utf8(source: &[u16], destination: &mut [u8]) -> Result<usize>{
+        // The actual number of utf8 characters written to the destination buffer
+        let mut written = 0;
+
+        let utf16_iterator = source.iter().cloned();
+        for chr in std::char::decode_utf16(utf16_iterator){
+            match chr{
+                Ok(value) => {
+                    value.encode_utf8(&mut destination[written..]);
+                    written += value.len_utf8();
+                }
+                Err(e) => {
+                    return Err(Error::new(ErrorKind::InvalidData, e));
+                }
+            }
+        }
+
+        Ok(written)
     }
 }
 
