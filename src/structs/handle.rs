@@ -76,6 +76,7 @@ impl Handle {
     /// use winapi::um::winnt::{GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_WRITE};
     /// use std::ptr::null_mut;
     ///
+    /// let file_name: Vec<u16> = "CONIN$\0".encode_utf16().collect();
     /// let handle = Handle::new_closeable(unsafe { CreateFileW(
     ///                file_name.as_ptr(),
     ///                GENERIC_READ | GENERIC_WRITE,
@@ -85,7 +86,7 @@ impl Handle {
     ///                0,
     ///                null_mut(),
     ///            ) });
-    /// assert_ne!(handle, INVALID_HANDLE_VALUE);
+    /// assert_ne!(*handle, INVALID_HANDLE_VALUE);
     /// ```
     pub fn new_closeable(handle: HANDLE) -> Handle {
         Handle {
@@ -109,8 +110,8 @@ impl Handle {
     /// use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     ///
     /// let handle = Handle::from_raw(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
-    /// let raw_handle : &HANDLE = &handle.get_raw();
-    /// assert_ne!(raw_handle, INVALID_HANDLE_VALUE);
+    /// let raw_handle = handle.get_raw();
+    /// assert_ne!(*raw_handle, INVALID_HANDLE_VALUE);
     /// ```
     pub fn get_raw(&self) -> &HANDLE {
         &self.inner.handle

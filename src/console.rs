@@ -227,7 +227,7 @@ impl WinConsole {
     ///
     /// Wraps a call to [CreateFileW].
     /// link: [https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew]
-    pub fn get_or_create_input_handle() -> Result<Handle> {
+    pub fn get_current_input_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONIN$\0".encode_utf16().collect();
 
@@ -261,7 +261,7 @@ impl WinConsole {
     ///
     /// Wraps a call to [CreateFileW].
     /// link: [https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew]
-    pub fn get_or_create_output_handle() -> Result<Handle> {
+    pub fn get_current_output_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONOUT$\0".encode_utf16().collect();
 
@@ -345,7 +345,7 @@ impl WinConsole {
     pub fn current_input() -> WinConsole {
         #[inline]
         fn get_input_handle() -> Handle {
-            WinConsole::get_or_create_input_handle().expect("Invalid handle")
+            WinConsole::get_current_input_handle().expect("Invalid handle")
         }
 
         WinConsole {
@@ -367,7 +367,7 @@ impl WinConsole {
     pub fn current_output() -> WinConsole {
         #[inline]
         fn get_output_handle() -> Handle {
-            WinConsole::get_or_create_output_handle().expect("Invalid handle")
+            WinConsole::get_current_output_handle().expect("Invalid handle")
         }
 
         WinConsole {
@@ -1417,7 +1417,7 @@ impl WinConsole {
     /// let input_records = WinConsole::input().read_input_n(10).unwrap();
     ///
     /// let mut buf = String::new();
-    /// for record in events{
+    /// for record in input_records{
     ///     if let KeyEvent(key) = record{
     ///         if key.key_down && key.u_char.is_ascii_alphanumeric(){
     ///             buf.push(key.u_char);
@@ -1677,7 +1677,7 @@ impl WinConsole {
         let handle = self.get_handle();
         let mut chars_read = 0;
 
-        if !WinConsole::is_console(*handle){
+        if !WinConsole::is_console(&handle){
             let mut data = match String::from_utf16(buffer) {
                 Ok(string) => string,
                 Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
@@ -1745,7 +1745,7 @@ impl WinConsole {
         let handle = self.get_handle();
         let mut chars_read = 0;
 
-        if !WinConsole::is_console(*handle){
+        if !WinConsole::is_console(&handle){
             let mut data = match String::from_utf16(buffer) {
                 Ok(string) => string,
                 Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
@@ -1832,7 +1832,7 @@ impl WinConsole {
         let mut chars_written = 0;
 
         // If is being redirected write to the handle
-        if !WinConsole::is_console(*handle) {
+        if !WinConsole::is_console(&handle) {
             let buf = match String::from_utf16(data) {
                 Ok(string) => string,
                 Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
@@ -1903,7 +1903,7 @@ impl WinConsole {
     /// WinConsole::output().set_screen_buffer_size(buffer_size.clone()).unwrap();
     ///
     /// for i in 0..buffer.capacity(){
-    ///    let char_info = CharInfo::new(' ', (16 << (x + y) % 3) as u16);
+    ///    let char_info = CharInfo::new(' ', (16 << i % 3) as u16);
     ///     buffer.push(char_info);
     /// }
     ///
@@ -1933,9 +1933,10 @@ impl WinConsole {
     }
 
     /// Checks if the handle is a handle to a console
-    fn is_console(handle: HANDLE) -> bool {
+    #[inline]
+    pub fn is_console(handle: &Handle) -> bool {
         let mut mode = 0;
-        unsafe { GetConsoleMode(handle, &mut mode) != 0 }
+        unsafe { GetConsoleMode(**handle, &mut mode) != 0 }
     }
 }
 
