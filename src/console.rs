@@ -8,49 +8,53 @@ use std::{
 };
 
 use winapi::{
-    um::wincon::CONSOLE_SCREEN_BUFFER_INFO,
-    um::wincon::CONSOLE_READCONSOLE_CONTROL,
-    um::wincon::SetConsoleScreenBufferSize,
-    um::wincon::WriteConsoleOutputW,
-    um::wincon::SMALL_RECT,
-    um::wincon::SetConsoleWindowInfo,
-    um::wincon::CHAR_INFO,
-    um::wincon::SetConsoleCP,
-    um::wincon::SetConsoleOutputCP,
-    um::wincon::AttachConsole,
-    um::wincon::FreeConsole,
-    um::wincon::GetConsoleOriginalTitleW,
-    um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
-    um::processenv::{GetStdHandle, SetStdHandle},
-    um::handleapi::INVALID_HANDLE_VALUE,
-    um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile},
-    um::consoleapi::{GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode, WriteConsoleW, GetConsoleCP, GetConsoleOutputCP, AllocConsole},
-    shared::minwindef::{FALSE, MAX_PATH},
+    shared::minwindef::{MAX_PATH},
     ctypes::c_void,
     _core::ptr::{null_mut},
-    um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX,
-    um::wincon::{
-        FillConsoleOutputAttribute, FillConsoleOutputCharacterW, GetConsoleScreenBufferInfo,
-        GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
-        GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
-        SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
-        SetConsoleTitleW, SetCurrentConsoleFontEx, CONSOLE_FONT_INFOEX,
-        INPUT_RECORD,
-    },
-    um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE},
-    um::wincontypes::{PCHAR_INFO, PSMALL_RECT},
+    um::{
+        wincontypes::{PCHAR_INFO, PSMALL_RECT},
+        winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE},
+        wincon::{
+            FillConsoleOutputAttribute, FillConsoleOutputCharacterW, GetConsoleScreenBufferInfo,
+            GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
+            GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
+            SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
+            SetConsoleTitleW, SetCurrentConsoleFontEx, CONSOLE_FONT_INFOEX,
+            INPUT_RECORD,
+        },
+        wincon::CONSOLE_SCREEN_BUFFER_INFOEX,
+        consoleapi::{GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode, WriteConsoleW, GetConsoleCP, GetConsoleOutputCP, AllocConsole},
+        fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile},
+        handleapi::INVALID_HANDLE_VALUE,
+        processenv::{GetStdHandle, SetStdHandle},
+        winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
+        wincon::GetConsoleOriginalTitleW,
+        wincon::FreeConsole,
+        wincon::AttachConsole,
+        wincon::SetConsoleOutputCP,
+        wincon::SetConsoleCP,
+        wincon::CHAR_INFO,
+        wincon::SetConsoleWindowInfo,
+        wincon::SMALL_RECT,
+        wincon::WriteConsoleOutputW,
+        wincon::SetConsoleScreenBufferSize,
+        wincon::CONSOLE_READCONSOLE_CONTROL,
+        wincon::CONSOLE_SCREEN_BUFFER_INFO,
+        wincon::{GetCurrentConsoleFont, CONSOLE_FONT_INFO}
+    }
 };
 
 use crate::{
     structs::console_screen_buffer_info_ex::ConsoleScreenBufferInfoEx,
     structs::console_screen_buffer_info::{ConsoleScreenBufferInfo, SmallRect},
-    structs::console_font_info::ConsoleFontInfoEx,
+    structs::console_font_info_ex::ConsoleFontInfoEx,
     structs::coord::Coord,
     structs::handle::Handle,
     structs::input_record::InputRecord,
     structs::char_info::CharInfo,
     structs::console_color::ConsoleColor,
-    structs::console_read_control::ConsoleReadControl
+    structs::console_read_control::ConsoleReadControl,
+    structs::console_font_info::ConsoleFontInfo
 };
 
 /// Represents an access to the windows console of the current process and provides methods for
@@ -91,6 +95,14 @@ pub enum HandleType {
     Output,
     /// Represents the [STD_ERROR_HANDLE].
     Error,
+}
+
+/// Represents where the font information will be retrieve.
+pub enum FontInfoSource {
+    // Font information will be retrieve from the windows maximum size.
+    MaximumSize = 1,
+    // Font information will be retrieve from the windows current size.
+    CurrentSize = 0
 }
 
 /// Wraps constants values of the console modes.
@@ -664,7 +676,7 @@ impl WinConsole {
         (&self.handle_provider)()
     }
 
-    /// Sets the[ConsoleFontInfoEx] of the current console.
+    /// Sets extended information about the console font.
     /// This function change the font into of all the current values in the console.
     ///
     /// Wraps a call to [SetCurrentConsoleFontEx]
@@ -676,28 +688,28 @@ impl WinConsole {
     ///
     /// # Examples
     /// ```
-    /// use win32console::console::WinConsole;
+    /// use win32console::console::{WinConsole, FontInfoSource};
     ///
-    /// let old_info = WinConsole::output().get_font_info().unwrap();
+    /// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
-    /// WinConsole::output().set_font_info(new_info).unwrap();
+    /// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
     /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     ///
     /// //  WinConsole::output().set_console_font_info(old_info).unwrap();
-    /// // DON'T WILL SHOW `BOLD` AND NORMAL FONT!!
+    /// // DON'T WILL SHOW BOTH `BOLD` AND `NORMAL` FONT!!
     ///
     /// // If we try to restore the old_info the new changes don't will be visible due
     /// // this method changes the font info of all the characters being displayed in the console
     /// ```
     ///
     /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
-    pub fn set_font_info(&self, info: ConsoleFontInfoEx) -> Result<()> {
+    pub fn set_font_info_ex(&self, info: ConsoleFontInfoEx, source: FontInfoSource) -> Result<()> {
         let handle = self.get_handle();
         let mut info = info.into();
 
         unsafe {
-            if SetCurrentConsoleFontEx(*handle, FALSE, &mut info) == 0 {
+            if SetCurrentConsoleFontEx(*handle, source as i32, &mut info) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
@@ -705,7 +717,35 @@ impl WinConsole {
         }
     }
 
-    /// Gets the current [ConsoleFontInfoEx] of the console.
+    /// Gets information about the console font.
+    ///
+    /// Wraps a call to [GetCurrentConsoleFont]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefont]
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::{WinConsole, FontInfoSource};    ///
+    /// let info = WinConsole::output().get_font_info(FontInfoSource::CurrentSize).unwrap();
+    /// ```
+    pub fn get_font_info(&self, source: FontInfoSource) -> Result<ConsoleFontInfo>{
+        let handle = self.get_handle();
+
+        unsafe{
+            let mut info : CONSOLE_FONT_INFO = std::mem::zeroed();
+            if GetCurrentConsoleFont(*handle, source as i32, &mut info) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(info.into())
+            }
+        }
+    }
+
+    /// Gets extended information about the console font.
     ///
     /// Wraps a call to [GetCurrentConsoleFontEx]
     /// link: [https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefontex]
@@ -716,25 +756,24 @@ impl WinConsole {
     ///
     /// # Examples
     /// ```
-    /// use win32console::console::WinConsole;
+    /// use win32console::console::{WinConsole, FontInfoSource};
     ///
-    /// let old_info = WinConsole::output().get_font_info().unwrap();
+    /// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
-    /// WinConsole::output().set_font_info(new_info).unwrap();
+    /// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
     /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     /// ```
-    ///
-    /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
-    pub fn get_font_info(&self) -> Result<ConsoleFontInfoEx> {
+    pub fn get_font_info_ex(&self, source: FontInfoSource) -> Result<ConsoleFontInfoEx> {
         let handle = self.get_handle();
+
         unsafe {
             let mut info: CONSOLE_FONT_INFOEX = std::mem::zeroed();
             info.cbSize = std::mem::size_of::<ConsoleFontInfoEx>() as u32;
 
             let ptr: *mut CONSOLE_FONT_INFOEX = &mut info;
 
-            if GetCurrentConsoleFontEx(*handle, FALSE, ptr) == 0 {
+            if GetCurrentConsoleFontEx(*handle, source as i32, ptr) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(ConsoleFontInfoEx::from(&info))
@@ -940,6 +979,7 @@ impl WinConsole {
     /// ```
     pub fn set_screen_buffer_size(&self, size: Coord) -> Result<()>{
         let handle = self.get_handle();
+
         unsafe{
             if SetConsoleScreenBufferSize(*handle, size.into()) == 0{
                 Err(Error::last_os_error())
@@ -1392,9 +1432,6 @@ impl WinConsole {
     /// ```
     pub fn read_single_input(&self) -> Result<InputRecord> {
         unsafe {
-            //let mut record: [InputRecord; 1] = [std::mem::zeroed()];
-            //self.read_console_input(&mut record).map(|_| record[0])
-
             let mut record: InputRecord = std::mem::zeroed();
             let mut buf = slice::from_mut(&mut record);
             self.read_input(&mut buf)?;
