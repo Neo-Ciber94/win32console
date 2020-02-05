@@ -107,6 +107,12 @@ impl ControlKeyState {
     /// The key is enhanced.
     pub const ENHANCED_KEY: u32 = 0x0100;
 
+    /// Creates a new [ControlKeyState] with the given state.
+    #[inline]
+    pub fn new(state: u32) -> Self{
+        ControlKeyState(state)
+    }
+
     /// Checks whether this state contains the specified.
     ///
     /// # Example

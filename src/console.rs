@@ -1,41 +1,57 @@
-use std::io::{Error, ErrorKind, Result};
-use std::iter;
-use std::slice;
-use std::mem::{transmute, MaybeUninit};
-use std::str;
-
-use winapi::_core::ptr::{null_mut};
-use winapi::ctypes::c_void;
-use winapi::shared::minwindef::{FALSE, MAX_PATH};
-use winapi::um::consoleapi::{GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode, WriteConsoleW, GetConsoleCP, GetConsoleOutputCP, AllocConsole};
-use winapi::um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile};
-use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-use winapi::um::processenv::{GetStdHandle, SetStdHandle};
-use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-use winapi::um::wincon::{CONSOLE_READCONSOLE_CONTROL, SetConsoleScreenBufferSize, WriteConsoleOutputW, SMALL_RECT, SetConsoleWindowInfo, CHAR_INFO, SetConsoleCP, SetConsoleOutputCP, AttachConsole, FreeConsole, GetConsoleOriginalTitleA};
-use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
-use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
-use winapi::um::wincon::{
-    FillConsoleOutputAttribute, FillConsoleOutputCharacterW, GetConsoleScreenBufferInfo,
-    GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
-    GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
-    SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
-    SetConsoleTitleW, SetCurrentConsoleFontEx, CONSOLE_FONT_INFOEX,
-    INPUT_RECORD,
+use std::{
+    iter,
+    io::{Error, ErrorKind, Result},
+    slice,
+    mem::{transmute, MaybeUninit},
+    str,
+    convert::TryFrom
 };
-use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE};
 
-use crate::structs::console_font_info::ConsoleFontInfoEx;
-use crate::structs::console_screen_buffer_info::{ConsoleScreenBufferInfo, SmallRect};
-use crate::structs::console_screen_buffer_info_ex::ConsoleScreenBufferInfoEx;
-use crate::structs::coord::Coord;
-use crate::structs::handle::Handle;
-use crate::structs::input_record::InputRecord;
-use crate::structs::char_info::CharInfo;
-use winapi::um::wincontypes::{PCHAR_INFO, PSMALL_RECT};
-use crate::structs::console_color::ConsoleColor;
-use std::convert::TryFrom;
-use winapi::_core::f32::MAX;
+use winapi::{
+    um::wincon::CONSOLE_SCREEN_BUFFER_INFO,
+    um::wincon::CONSOLE_READCONSOLE_CONTROL,
+    um::wincon::SetConsoleScreenBufferSize,
+    um::wincon::WriteConsoleOutputW,
+    um::wincon::SMALL_RECT,
+    um::wincon::SetConsoleWindowInfo,
+    um::wincon::CHAR_INFO,
+    um::wincon::SetConsoleCP,
+    um::wincon::SetConsoleOutputCP,
+    um::wincon::AttachConsole,
+    um::wincon::FreeConsole,
+    um::wincon::GetConsoleOriginalTitleW,
+    um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
+    um::processenv::{GetStdHandle, SetStdHandle},
+    um::handleapi::INVALID_HANDLE_VALUE,
+    um::fileapi::{CreateFileW, WriteFile, OPEN_EXISTING, ReadFile},
+    um::consoleapi::{GetConsoleMode, GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode, WriteConsoleW, GetConsoleCP, GetConsoleOutputCP, AllocConsole},
+    shared::minwindef::{FALSE, MAX_PATH},
+    ctypes::c_void,
+    _core::ptr::{null_mut},
+    um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX,
+    um::wincon::{
+        FillConsoleOutputAttribute, FillConsoleOutputCharacterW, GetConsoleScreenBufferInfo,
+        GetConsoleScreenBufferInfoEx, GetConsoleTitleW, GetCurrentConsoleFontEx,
+        GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons, PeekConsoleInputW,
+        SetConsoleCursorPosition, SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute,
+        SetConsoleTitleW, SetCurrentConsoleFontEx, CONSOLE_FONT_INFOEX,
+        INPUT_RECORD,
+    },
+    um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE},
+    um::wincontypes::{PCHAR_INFO, PSMALL_RECT},
+};
+
+use crate::{
+    structs::console_screen_buffer_info_ex::ConsoleScreenBufferInfoEx,
+    structs::console_screen_buffer_info::{ConsoleScreenBufferInfo, SmallRect},
+    structs::console_font_info::ConsoleFontInfoEx,
+    structs::coord::Coord,
+    structs::handle::Handle,
+    structs::input_record::InputRecord,
+    structs::char_info::CharInfo,
+    structs::console_color::ConsoleColor,
+    structs::console_read_control::ConsoleReadControl
+};
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -522,19 +538,20 @@ impl WinConsole {
     /// }
     /// ```
     pub fn get_title() -> Result<String> {
-        let mut buffer = iter::repeat_with(u16::default)
-            .take(MAX_PATH as usize)
-            .collect::<Vec<u16>>();
-
-        let temp = buffer.as_mut_slice();
+        let mut buffer: [u16; MAX_PATH as usize] = unsafe{ MaybeUninit::zeroed().assume_init() };
 
         unsafe {
-            let length = GetConsoleTitleW(temp.as_mut_ptr(), MAX_PATH as u32) as usize;
+            let length = GetConsoleTitleW(buffer.as_mut_ptr(), MAX_PATH as u32) as usize;
 
             if length == 0 {
                 Err(Error::last_os_error())
             } else {
-                Ok(String::from_utf16_lossy(&temp[..length]))
+                match String::from_utf16(&buffer){
+                    Ok(string) => Ok(string),
+                    Err(e) => {
+                        Err(Error::new(ErrorKind::InvalidData, e))
+                    }
+                }
             }
         }
     }
@@ -547,24 +564,21 @@ impl WinConsole {
     /// # Examples
     /// ```
     /// use win32console::console::WinConsole;
-    /// let title = WinConsole::get_original_title();
+    /// let title = WinConsole::get_original_title().unwrap();
+    /// WinConsole::output().write_utf8(title.as_bytes());
     /// ```
-    pub fn get_original_title() -> Result<&'static str>{
-        let mut title : [i8; MAX_PATH as usize] = unsafe{
-            MaybeUninit::zeroed().assume_init()
-        };
+    pub fn get_original_title() -> Result<String>{
+        let mut buffer: [u16; MAX_PATH as usize] = unsafe{ MaybeUninit::zeroed().assume_init() };
 
         unsafe{
-            if GetConsoleOriginalTitleA(title.as_mut_ptr(), title.len() as u32) == 0{
+            if GetConsoleOriginalTitleW(buffer.as_mut_ptr(), buffer.len() as u32) == 0{
                 Err(Error::last_os_error())
             }
             else{
-                let utf8_str = slice::from_raw_parts(&title as *const i8 as *const u8, title.len());
-
-                match str::from_utf8(utf8_str){
-                    Ok(s) => Ok(s),
+                match String::from_utf16(&buffer){
+                    Ok(string) => Ok(string),
                     Err(e) => {
-                        Err(Error::new(ErrorKind::InvalidData, format!("{:?}", e)))
+                        Err(Error::new(ErrorKind::InvalidData, e))
                     }
                 }
             }
@@ -1101,12 +1115,19 @@ impl WinConsole {
     /// WinConsole::output().clear();
     /// ```
     pub fn clear(&self) -> Result<()> {
+        // Gets the size of the current screen buffer
         let info = self.get_screen_buffer_info()?;
         let size = info.screen_buffer_size;
         let length: u32 = size.x as u32 * size.y as u32;
+
+        // Fills the console with a whitespace
         self.fill_with_char(Coord::default(), length, ' ')?;
 
+        // Fills with the current attribute.
+        // TODO: Use 0 as attribute?
         self.fill_with_attribute(Coord::default(), length, info.attributes)?;
+
+        // Set the cursor position to (0, 0)
         self.set_cursor_position(Coord::default())?;
 
         Ok(())
@@ -1642,6 +1663,7 @@ impl WinConsole {
     /// ```
     pub fn read_utf16(&self, buffer: &mut [u16]) -> Result<usize> {
         // https://github.com/rust-lang/rust/blob/master/src/libstd/sys/windows/stdio.rs
+        // https://stackoverflow.com/questions/43836040/win-api-readconsole
         const CTRL_Z: u16 = 0x1A;
         const CTRL_Z_MASK: u32 = (1 << CTRL_Z) as u32;
 
@@ -1690,6 +1712,70 @@ impl WinConsole {
                     chars_read -= 1;
                 }
 
+                Ok(chars_read as usize)
+            }
+        }
+    }
+
+    /// Fills the given `[u16]` buffer with characters from the standard input using the specified
+    /// console read control.
+    ///
+    /// - `control`: provides information used for a read operation as the number of chars
+    /// to skip or the end signal.
+    ///
+    /// Wraps a call to [ReadConsoleW]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    ///
+    /// # Returns
+    /// The number of characters read.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
+    /// the function should be called using `WinConsole::input()` or a valid input handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use win32console::console::WinConsole;
+    /// let mut buffer : [u16 ; 10] = unsafe { MaybeUninit::zeroed().assume_init() };
+    /// WinConsole::input().read_utf16(&mut buffer);
+    /// ```
+    pub fn read_utf16_with_control(&self, buffer: &mut [u16], control: ConsoleReadControl) -> Result<usize>{
+        let mut input_control = control.into();
+        let handle = self.get_handle();
+        let mut chars_read = 0;
+
+        if !WinConsole::is_console(*handle){
+            let mut data = match String::from_utf16(buffer) {
+                Ok(string) => string,
+                Err(e) => return Err(Error::new(std::io::ErrorKind::InvalidInput, e)),
+            };
+
+            unsafe{
+                if ReadFile(
+                    *handle,
+                    data.as_mut_ptr() as *mut c_void,
+                    buffer.len() as u32,
+                    &mut chars_read,
+                    null_mut()) == 0{
+                    return Err(Error::last_os_error());
+                }
+            }
+
+            return Ok(chars_read as usize);
+        }
+
+        unsafe {
+            if ReadConsoleW(
+                *handle,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len() as u32,
+                &mut chars_read,
+                &mut input_control,
+            ) == 0
+            {
+                Err(Error::last_os_error())
+            } else {
                 Ok(chars_read as usize)
             }
         }

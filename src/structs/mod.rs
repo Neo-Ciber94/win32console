@@ -11,3 +11,4 @@ pub mod input_record;
 pub mod menu_event;
 pub mod window_buffer_size_event;
 pub mod char_info;
+pub mod console_read_control;
