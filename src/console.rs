@@ -57,6 +57,9 @@ use crate::{
     structs::console_font_info::ConsoleFontInfo
 };
 use winapi::um::consoleapi::{WriteConsoleA, ReadConsoleA};
+use crate::structs::console_selection_info::ConsoleSelectionInfo;
+use winapi::um::wincon::{GetConsoleSelectionInfo, CONSOLE_SELECTION_INFO, CreateConsoleScreenBuffer, CONSOLE_TEXTMODE_BUFFER, SetConsoleActiveScreenBuffer};
+use winapi::_core::ptr::null;
 
 /// Represents an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -73,10 +76,7 @@ use winapi::um::consoleapi::{WriteConsoleA, ReadConsoleA};
 /// let name = WinConsole::input().read_string().unwrap();
 /// WinConsole::output().write_utf8(format!("Oh, Hello {}!", name.trim()).as_ref()).unwrap();
 /// ```
-pub struct WinConsole {
-    /// A function that returns a handle
-    handle_provider: Box<dyn Fn() -> Handle>,
-}
+pub struct WinConsole(Box<dyn Fn() -> Handle>);
 
 /// Type of a console handle, you can use this enum to get a handle by calling: [WinConsole::get_std_handle(...)].
 ///
@@ -318,9 +318,7 @@ impl WinConsole {
             WinConsole::get_std_handle(HandleType::Input).expect("Invalid handle")
         }
 
-        WinConsole {
-            handle_provider: Box::new(get_input_handle),
-        }
+        WinConsole(Box::new(get_input_handle))
     }
 
     /// Gets a console with the [STD_OUTPUT_HANDLE].
@@ -339,9 +337,7 @@ impl WinConsole {
             WinConsole::get_std_handle(HandleType::Output).expect("Invalid handle")
         }
 
-        WinConsole {
-            handle_provider: Box::new(get_output_handle),
-        }
+        WinConsole(Box::new(get_output_handle))
     }
 
     /// Gets a console with current input handle.
@@ -361,9 +357,7 @@ impl WinConsole {
             WinConsole::get_current_input_handle().expect("Invalid handle")
         }
 
-        WinConsole {
-            handle_provider: Box::new(get_input_handle),
-        }
+        WinConsole(Box::new(get_input_handle))
     }
 
     /// Gets a console with the current output handle.
@@ -383,9 +377,7 @@ impl WinConsole {
             WinConsole::get_current_output_handle().expect("Invalid handle")
         }
 
-        WinConsole {
-            handle_provider: Box::new(get_output_handle),
-        }
+        WinConsole(Box::new(get_output_handle))
     }
 }
 
@@ -642,11 +634,74 @@ impl WinConsole {
         }
     }
 
+    /// Gets information about the current console selection.
+    ///
+    /// Wraps a call to [GetConsoleSelectionInfo].
+    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsoleselectioninfo]
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let info = WinConsole::get_selection_info().unwrap();
+    /// ```
+    pub fn get_selection_info() -> Result<ConsoleSelectionInfo>{
+        unsafe{
+            let mut info : CONSOLE_SELECTION_INFO = std::mem::zeroed();
+
+            if GetConsoleSelectionInfo(&mut info) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(ConsoleSelectionInfo::from(info))
+            }
+        }
+    }
+
+    /// Creates a new console screen buffer with:
+    /// - `dwDesiredAccess` = GENERIC_READ | GENERIC_WRITE`
+    /// - `dwShareMode` = FILE_SHARE_READ | FILE_SHARE_WRITE
+    ///
+    /// Wraps a call to [CreateConsoleScreenBuffer]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer]
+    pub fn create_console_screen_buffer() -> Result<Handle>{
+        unsafe{
+            let raw_handle = CreateConsoleScreenBuffer(
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                null_mut(),
+                CONSOLE_TEXTMODE_BUFFER,
+                null_mut()
+            );
+
+            if raw_handle == INVALID_HANDLE_VALUE{
+                Err(Error::new(ErrorKind::InvalidData, "Cannot create a screen buffer"))
+            }
+            else{
+                Ok(Handle::new_owned(raw_handle))
+            }
+        }
+    }
+
+    /// Sets the specified screen buffer to be the currently displayed console screen buffer.
+    ///
+    /// Wraps a call to [SetConsoleActiveScreenBuffer]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoleactivescreenbuffer]
+    pub fn set_active_console_screen_buffer(handle: &Handle) -> Result<()>{
+        unsafe{
+            if SetConsoleActiveScreenBuffer(**handle) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
+    }
+
     // Instance methods
 
     /// Gets the handle used for this console, which will be provided by the `handle_provider`.
     pub fn get_handle(&self) -> Handle {
-        (&self.handle_provider)()
+        (&self.0)()
     }
 
     /// Gets the current mode of the console
