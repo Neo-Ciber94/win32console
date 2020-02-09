@@ -5,11 +5,11 @@ use winapi::{
 };
 
 /// Wraps a windows [HANDLE].
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Handle(RawHandle);
 
 /// Wraps the actual [HANDLE] and drop if owned.
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 struct RawHandle {
     handle: HANDLE,
     ownership: HandleOwnership,
@@ -28,10 +28,10 @@ enum HandleOwnership {
     Shared,
 }
 
-impl Drop for RawHandle {
+impl Drop for Handle {
     fn drop(&mut self) {
-        if self.ownership == HandleOwnership::Owned {
-            assert!(unsafe { CloseHandle(self.handle) != 0 }, "Cannot close the handle")
+        if self.0.ownership == HandleOwnership::Owned {
+            assert!(unsafe { CloseHandle(**self) != 0 }, "Cannot close the handle")
         }
     }
 }
@@ -124,6 +124,12 @@ impl Handle {
         }
 
         true
+    }
+}
+
+impl AsRef<Handle> for Handle{
+    fn as_ref(&self) -> &Handle {
+        self
     }
 }
 
