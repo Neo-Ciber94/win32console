@@ -1,0 +1,6 @@
+/target
+/.idea
+**/*.rs.bk
+win32console.iml
+Cargo.lock
+main.rs
