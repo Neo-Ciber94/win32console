@@ -2,7 +2,7 @@ use std::{
     convert::TryFrom,
     io::{Error, ErrorKind, Result},
     iter,
-    mem::{MaybeUninit, transmute},
+    mem::{MaybeUninit},
     slice,
     str,
     ptr::null_mut
@@ -100,6 +100,7 @@ use crate::{
 /// let name = WinConsole::input().read_string().unwrap();
 /// WinConsole::output().write_utf8(format!("Oh, Hello {}!", name.trim()).as_ref()).unwrap();
 /// ```
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WinConsole(Handle);
 
 /// Type of a console handle, you can use this enum to get a handle by calling: [`WinConsole::get_std_handle(...)`].
@@ -111,13 +112,14 @@ pub struct WinConsole(Handle);
 /// let handle = WinConsole::get_std_handle(HandleType::Input).unwrap();
 /// assert!(handle.is_valid());
 /// ```
+#[repr(u32)]
 pub enum HandleType {
     /// Represents the [`STD_INPUT_HANDLE`].
-    Input,
+    Input = STD_INPUT_HANDLE,
     /// Represents the [`STD_OUTPUT_HANDLE`].
-    Output,
+    Output = STD_OUTPUT_HANDLE,
     /// Represents the [`STD_ERROR_HANDLE`].
-    Error,
+    Error = STD_ERROR_HANDLE
 }
 
 /// Represents where the font information will be retrieve.
@@ -137,6 +139,28 @@ pub struct ConsoleMode;
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffers]
 pub struct ConsoleTextAttribute;
+
+/// Wraps basics options to create a console.
+///
+/// See: [`https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer`].
+///
+/// # Example
+/// ```
+/// use win32console::console::{ConsoleOptions, WinConsole};
+/// let options = ConsoleOptions::new()
+///     .generic_read()
+///     .generic_write()
+///     .shared_read()
+///     .shared_write();
+///
+/// let handle = WinConsole::create_console_screen_buffer_with_options(options).unwrap();
+/// ```
+pub struct ConsoleOptions{
+    // The access to the console screen buffer.
+    desired_access: u32,
+    // Indicate how the buffer can be shared.
+    share_mode: u32
+}
 
 impl ConsoleMode {
     /// CTRL+C is processed by the system and is not placed in the input buffer.
@@ -210,13 +234,47 @@ impl ConsoleTextAttribute {
     pub const COMMON_LVB_UNDERSCORE: u16 = 0x8000;
 }
 
-impl Into<u32> for HandleType {
-    fn into(self) -> u32 {
-        match self {
-            HandleType::Input => STD_INPUT_HANDLE,
-            HandleType::Output => STD_OUTPUT_HANDLE,
-            HandleType::Error => STD_ERROR_HANDLE,
-        }
+impl ConsoleOptions{
+    /// Create a new [`ConsoleOptions`].
+    #[inline]
+    pub fn new() -> Self{
+        ConsoleOptions{ desired_access: 0, share_mode: 0 }
+    }
+
+    /// Gets the desired access of the console.
+    #[inline]
+    pub fn get_desired_access(&self) -> u32{
+        self.desired_access
+    }
+
+    /// Gets the share mode of the console.
+    #[inline]
+    pub fn get_share_mode(&self) -> u32{
+        self.share_mode
+    }
+
+    /// Set the console as [`GENERIC_READ`].
+    pub fn generic_read(mut self) -> ConsoleOptions{
+        self.desired_access |= GENERIC_READ;
+        self
+    }
+
+    /// Set the console as [`GENERIC_WRITE`].
+    pub fn generic_write(mut self) -> ConsoleOptions{
+        self.desired_access |= GENERIC_WRITE;
+        self
+    }
+
+    /// Set the console as [`FILE_SHARE_READ`].
+    pub fn shared_read(mut self) -> ConsoleOptions{
+        self.share_mode |= FILE_SHARE_READ;
+        self
+    }
+
+    /// Set the console as [`FILE_SHARE_WRITE`].
+    pub fn shared_write(mut self) -> ConsoleOptions{
+        self.share_mode |= FILE_SHARE_WRITE;
+        self
     }
 }
 
@@ -233,7 +291,7 @@ impl WinConsole {
     /// ```
     pub fn get_std_handle(handle_type: HandleType) -> Result<Handle> {
         unsafe {
-            let raw_handle = GetStdHandle(handle_type.into());
+            let raw_handle = GetStdHandle(handle_type as u32);
             if raw_handle == INVALID_HANDLE_VALUE {
                 // Invalid handle
                 // https://docs.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
@@ -256,7 +314,7 @@ impl WinConsole {
     /// ```
     pub fn set_std_handle(handle_type: HandleType, handle: Handle) -> Result<()> {
         unsafe {
-            if SetStdHandle(handle_type.into(), *handle) == 0 {
+            if SetStdHandle(handle_type as u32, *handle) == 0 {
                 return Err(Error::last_os_error());
             }
 
@@ -711,6 +769,28 @@ impl WinConsole {
         }
     }
 
+    /// Creates a new console screen buffer with the given options.
+    pub fn create_console_screen_buffer_with_options(options: ConsoleOptions) -> Result<Handle>{
+        unsafe {
+            let raw_handle = CreateConsoleScreenBuffer(
+                options.get_desired_access(),
+                options.get_share_mode(),
+                null_mut(),
+                CONSOLE_TEXTMODE_BUFFER,
+                null_mut(),
+            );
+
+            if raw_handle == INVALID_HANDLE_VALUE {
+                Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Cannot create a screen buffer",
+                ))
+            } else {
+                Ok(Handle::new_owned(raw_handle))
+            }
+        }
+    }
+
     /// Sets the specified screen buffer to be the currently displayed console screen buffer.
     ///
     /// Wraps a call to [SetConsoleActiveScreenBuffer](https://docs.microsoft.com/en-us/windows/console/setconsoleactivescreenbuffer).
@@ -1059,7 +1139,7 @@ impl WinConsole {
     /// ```
     pub fn set_window_info(&self, absolute: bool, window: &SmallRect) -> Result<()> {
         let handle = self.get_handle();
-        let mut small_rect: &SMALL_RECT = &(*window).into();
+        let small_rect: &SMALL_RECT = &(*window).into();
 
         unsafe {
             if SetConsoleWindowInfo(**handle, absolute.into(), small_rect) == 0 {
@@ -1123,7 +1203,7 @@ impl WinConsole {
     pub fn set_cursor_position(&self, coord: Coord) -> Result<()> {
         unsafe {
             let handle = self.get_handle();
-            if SetConsoleCursorPosition(**handle, transmute(coord)) != 0 {
+            if SetConsoleCursorPosition(**handle, coord.into()) != 0 {
                 Ok(())
             } else {
                 Err(Error::last_os_error())

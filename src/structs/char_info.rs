@@ -15,6 +15,7 @@ pub struct CharInfo{
 
 impl CharInfo{
     /// Creates a new `CharInfo`.
+    #[inline]
     pub fn new(char_value: char, attributes: u16) -> Self {
         CharInfo{
             char_value, attributes

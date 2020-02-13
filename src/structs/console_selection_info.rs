@@ -5,6 +5,7 @@ use crate::structs::small_rect::SmallRect;
 /// Represents a [CONSOLE_SELECTION_INFO] which contains information for a console selection.
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/console-selection-info-str]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct ConsoleSelectionInfo {
     // The selection indicator
     pub selection_indicator: SelectionState,
@@ -15,6 +16,7 @@ pub struct ConsoleSelectionInfo {
 }
 
 /// Represents the selection indicator state
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd,Copy, Clone)]
 pub struct SelectionState(u32);
 
 impl SelectionState {
@@ -73,6 +75,7 @@ impl SelectionState {
 }
 
 impl Into<CONSOLE_SELECTION_INFO> for ConsoleSelectionInfo {
+    #[inline]
     fn into(self) -> CONSOLE_SELECTION_INFO {
         CONSOLE_SELECTION_INFO {
             dwFlags: self.selection_indicator.0,
@@ -83,6 +86,7 @@ impl Into<CONSOLE_SELECTION_INFO> for ConsoleSelectionInfo {
 }
 
 impl From<CONSOLE_SELECTION_INFO> for ConsoleSelectionInfo {
+    #[inline]
     fn from(info: CONSOLE_SELECTION_INFO) -> Self {
         ConsoleSelectionInfo {
             selection_indicator: SelectionState(info.dwFlags),

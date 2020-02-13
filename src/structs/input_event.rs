@@ -186,16 +186,19 @@ impl ControlKeyState {
 
 impl ButtonState {
     /// Returns whether the button is released or pressed.
+    #[inline]
     pub fn release_button(&self) -> bool {
         self.0 == 0
     }
 
     /// Returns whether the left button was pressed.
+    #[inline]
     pub fn left_button(&self) -> bool {
         self.0 as u32 & FROM_LEFT_1ST_BUTTON_PRESSED != 0
     }
 
     /// Returns whether the right button was pressed.
+    #[inline]
     pub fn right_button(&self) -> bool {
         self.0 as u32
             & (RIGHTMOST_BUTTON_PRESSED
@@ -205,21 +208,25 @@ impl ButtonState {
     }
 
     /// Returns whether the right button was pressed.
+    #[inline]
     pub fn middle_button(&self) -> bool {
         self.0 as u32 & FROM_LEFT_2ND_BUTTON_PRESSED != 0
     }
 
     /// Returns whether there is a down scroll.
+    #[inline]
     pub fn scroll_down(&self) -> bool {
         self.0 < 0
     }
 
     /// Returns whether there is a up scroll.
+    #[inline]
     pub fn scroll_up(&self) -> bool {
         self.0 > 0
     }
 
     /// Returns the raw state.
+    #[inline]
     pub fn get_state(&self) -> i32 {
         self.0
     }

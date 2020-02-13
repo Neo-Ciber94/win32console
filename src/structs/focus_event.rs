@@ -4,7 +4,7 @@ use winapi::um::wincon::FOCUS_EVENT_RECORD;
 /// These events are used internally and should be ignored.
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/focus-event-record-str]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct FocusEventRecord {
     /// Reserved.
     pub set_focus: bool,

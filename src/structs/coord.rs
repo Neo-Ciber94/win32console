@@ -19,11 +19,13 @@ impl Coord {
     pub const ZERO: Coord = Coord { x: 0, y: 0 };
 
     /// Create a new size instance with the given x and y.
+    #[inline]
     pub fn new(x: i16, y: i16) -> Coord {
         Coord { x, y }
     }
 
     /// Gets this `Coord` with a new `x` value.
+    #[inline]
     pub fn with_x(&self, x: i16) -> Coord{
         Coord{
             x,
@@ -32,6 +34,7 @@ impl Coord {
     }
 
     /// Gets this `Coord` with a new `y` value.
+    #[inline]
     pub fn with_y(&self, y: i16) -> Coord{
         Coord{
             x: self.x,
@@ -41,18 +44,21 @@ impl Coord {
 }
 
 impl Display for Coord{
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         f.write_fmt(format_args!("({}, {})", self.x, self.y))
     }
 }
 
 impl From<COORD> for Coord {
+    #[inline]
     fn from(coord: COORD) -> Self {
         Coord::new(coord.X, coord.Y)
     }
 }
 
 impl Into<COORD> for Coord {
+    #[inline]
     fn into(self) -> COORD {
         COORD {
             X: self.x,

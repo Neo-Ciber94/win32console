@@ -16,11 +16,13 @@ pub struct SmallRect {
 
 impl SmallRect {
     /// Creates a new `SmallRect`.
+    #[inline]
     pub fn new(left: i16, top: i16, right: i16, bottom: i16) -> Self{
         SmallRect{ left, top, right, bottom}
     }
 
     /// Creates a `SmallRect` from this instance with a new `left` value.
+    #[inline]
     pub fn with_left(&self, left: i16) -> Self{
         SmallRect{
             left,
@@ -31,6 +33,7 @@ impl SmallRect {
     }
 
     /// Creates a `SmallRect` from this instance with a new `top` value.
+    #[inline]
     pub fn with_top(&self, top: i16) -> Self{
         SmallRect{
             left: self.left,
@@ -41,6 +44,7 @@ impl SmallRect {
     }
 
     /// Creates a `SmallRect` from this instance with a new `right` value.
+    #[inline]
     pub fn with_right(&self, right: i16) -> Self{
         SmallRect{
             left: self.left,
@@ -51,6 +55,7 @@ impl SmallRect {
     }
 
     /// Creates a `SmallRect` from this instance with a new `bottom` value.
+    #[inline]
     pub fn with_bottom(&self, bottom: i16) -> Self{
         SmallRect{
             left: self.left,
@@ -62,12 +67,14 @@ impl SmallRect {
 }
 
 impl Display for SmallRect{
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         f.write_fmt(format_args!("[Left: {}, Top: {}, Right: {}, Bottom: {}]", self.left, self.top, self.right, self.bottom))
     }
 }
 
 impl From<SMALL_RECT> for SmallRect {
+    #[inline]
     fn from(rect: SMALL_RECT) -> Self {
         SmallRect {
             left: rect.Left,
@@ -79,6 +86,7 @@ impl From<SMALL_RECT> for SmallRect {
 }
 
 impl Into<SMALL_RECT> for SmallRect {
+    #[inline]
     fn into(self) -> SMALL_RECT {
         SMALL_RECT {
             Left: self.left,
@@ -92,6 +100,7 @@ impl Into<SMALL_RECT> for SmallRect {
 impl Div<i16> for SmallRect{
     type Output = SmallRect;
 
+    #[inline]
     fn div(self, rhs: i16) -> Self::Output {
        SmallRect{
            left: self.left / rhs,
@@ -105,6 +114,7 @@ impl Div<i16> for SmallRect{
 impl Mul<i16> for SmallRect{
     type Output = SmallRect;
 
+    #[inline]
     fn mul(self, rhs: i16) -> Self::Output {
         SmallRect{
             left: self.left * rhs,

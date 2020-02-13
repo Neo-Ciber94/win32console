@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt::{Display, Error, Formatter };
 
 /// Represents a color for the windows console.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum ConsoleColor {
     Black = 0,
     DarkBlue = 1,
@@ -34,6 +34,7 @@ impl ConsoleColor {
     /// WinConsole::output().set_text_attribute(color);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     /// ```
+    #[inline]
     pub fn as_foreground_color(&self) -> u16 {
         *self as u16
     }
@@ -49,6 +50,7 @@ impl ConsoleColor {
     /// WinConsole::output().set_text_attribute(color);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     /// ```
+    #[inline]
     pub fn as_background_color(&self) -> u16 {
         (*self as u16) << 4
     }
@@ -84,6 +86,7 @@ impl TryFrom<u16> for ConsoleColor{
 }
 
 impl Into<u16> for ConsoleColor {
+    #[inline]
     fn into(self) -> u16 {
         self.as_foreground_color()
     }

@@ -50,6 +50,7 @@ impl Handle {
     /// let handle = Handle::new(unsafe { GetStdHandle(STD_INPUT_HANDLE) });
     /// assert!(handle.is_valid());
     /// ```
+    #[inline]
     pub fn new(handle: HANDLE) -> Handle {
         Handle(RawHandle { handle, ownership: HandleOwnership::Shared })
     }
@@ -79,6 +80,7 @@ impl Handle {
     ///            ) });
     /// assert_ne!(*handle, INVALID_HANDLE_VALUE);
     /// ```
+    #[inline]
     pub fn new_owned(handle: HANDLE) -> Handle {
         Handle(RawHandle { handle, ownership: HandleOwnership::Owned })
     }
@@ -128,6 +130,7 @@ impl Handle {
 }
 
 impl AsRef<Handle> for Handle{
+    #[inline]
     fn as_ref(&self) -> &Handle {
         self
     }
@@ -137,6 +140,7 @@ impl Deref for Handle {
     type Target = HANDLE;
 
     /// Gets a reference to the underlying [HANDLE].
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0.handle
     }

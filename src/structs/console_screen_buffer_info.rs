@@ -21,6 +21,7 @@ pub struct ConsoleScreenBufferInfo {
 }
 
 impl From<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo {
+    #[inline]
     fn from(info: CONSOLE_SCREEN_BUFFER_INFO) -> Self {
         ConsoleScreenBufferInfo {
             screen_buffer_size: Coord::from(info.dwSize),
@@ -33,6 +34,7 @@ impl From<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo {
 }
 
 impl Into<CONSOLE_SCREEN_BUFFER_INFO> for ConsoleScreenBufferInfo {
+    #[inline]
     fn into(self) -> CONSOLE_SCREEN_BUFFER_INFO {
         CONSOLE_SCREEN_BUFFER_INFO {
             dwSize: self.screen_buffer_size.into(),

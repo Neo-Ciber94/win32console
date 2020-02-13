@@ -37,6 +37,7 @@ pub struct ConsoleScreenBufferInfoEx {
 }
 
 impl From<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx {
+    #[inline]
     fn from(info: CONSOLE_SCREEN_BUFFER_INFOEX) -> Self {
         ConsoleScreenBufferInfoEx {
             size: info.cbSize,
@@ -53,6 +54,7 @@ impl From<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx {
 }
 
 impl Into<CONSOLE_SCREEN_BUFFER_INFOEX> for ConsoleScreenBufferInfoEx {
+    #[inline]
     fn into(self) -> CONSOLE_SCREEN_BUFFER_INFOEX {
         CONSOLE_SCREEN_BUFFER_INFOEX {
             cbSize: self.size,

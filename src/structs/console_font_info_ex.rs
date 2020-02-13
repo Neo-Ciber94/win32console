@@ -28,6 +28,7 @@ pub struct ConsoleFontInfoEx {
 }
 
 impl From<&CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx {
+    #[inline]
     fn from(info: &CONSOLE_FONT_INFOEX) -> Self {
         ConsoleFontInfoEx {
             size: info.cbSize,
@@ -41,6 +42,7 @@ impl From<&CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx {
 }
 
 impl Into<CONSOLE_FONT_INFOEX> for ConsoleFontInfoEx {
+    #[inline]
     fn into(self) -> CONSOLE_FONT_INFOEX {
         CONSOLE_FONT_INFOEX {
             cbSize: self.size,
