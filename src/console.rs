@@ -113,6 +113,7 @@ pub struct WinConsole(Handle);
 /// assert!(handle.is_valid());
 /// ```
 #[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum HandleType {
     /// Represents the [`STD_INPUT_HANDLE`].
     Input = STD_INPUT_HANDLE,
@@ -120,14 +121,6 @@ pub enum HandleType {
     Output = STD_OUTPUT_HANDLE,
     /// Represents the [`STD_ERROR_HANDLE`].
     Error = STD_ERROR_HANDLE
-}
-
-/// Represents where the font information will be retrieve.
-pub enum FontInfoSource {
-    // Font information will be retrieve from the windows maximum size.
-    MaximumSize = 1,
-    // Font information will be retrieve from the windows current size.
-    CurrentSize = 0,
 }
 
 /// Wraps constants values of the console modes.
@@ -155,6 +148,7 @@ pub struct ConsoleTextAttribute;
 ///
 /// let handle = WinConsole::create_console_screen_buffer_with_options(options).unwrap();
 /// ```
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ConsoleOptions{
     // The access to the console screen buffer.
     desired_access: u32,
@@ -904,12 +898,12 @@ impl WinConsole {
     ///
     /// # Example
     /// ```
-    /// use win32console::console::{WinConsole, FontInfoSource};
+    /// use win32console::console::{WinConsole};
     ///
-    /// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
+    /// let old_info = WinConsole::output().get_font_info_ex(false).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
-    /// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
+    /// WinConsole::output().set_font_info_ex(new_info, false).unwrap();
     /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     ///
     /// //  WinConsole::output().set_console_font_info(old_info).unwrap();
@@ -920,12 +914,12 @@ impl WinConsole {
     /// ```
     ///
     /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
-    pub fn set_font_info_ex(&self, info: ConsoleFontInfoEx, source: FontInfoSource) -> Result<()> {
+    pub fn set_font_info_ex(&self, info: ConsoleFontInfoEx, maximum_window: bool) -> Result<()> {
         let handle = self.get_handle();
         let mut info = info.into();
 
         unsafe {
-            if SetCurrentConsoleFontEx(**handle, source as i32, &mut info) == 0 {
+            if SetCurrentConsoleFontEx(**handle, maximum_window.into(), &mut info) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
@@ -943,15 +937,15 @@ impl WinConsole {
     ///
     /// # Example
     /// ```
-    /// use win32console::console::{WinConsole, FontInfoSource};
-    /// let info = WinConsole::output().get_font_info(FontInfoSource::CurrentSize).unwrap();
+    /// use win32console::console::{WinConsole};
+    /// let info = WinConsole::output().get_font_info(true).unwrap();
     /// ```
-    pub fn get_font_info(&self, source: FontInfoSource) -> Result<ConsoleFontInfo> {
+    pub fn get_font_info(&self, maximum_window: bool) -> Result<ConsoleFontInfo> {
         let handle = self.get_handle();
 
         unsafe {
             let mut info: CONSOLE_FONT_INFO = std::mem::zeroed();
-            if GetCurrentConsoleFont(**handle, source as i32, &mut info) == 0 {
+            if GetCurrentConsoleFont(**handle, maximum_window.into(), &mut info) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(info.into())
@@ -969,15 +963,15 @@ impl WinConsole {
     ///
     /// # Example
     /// ```
-    /// use win32console::console::{WinConsole, FontInfoSource};
+    /// use win32console::console::{WinConsole};
     ///
-    /// let old_info = WinConsole::output().get_font_info_ex(FontInfoSource::CurrentSize).unwrap();
+    /// let old_info = WinConsole::output().get_font_info_ex(false).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
-    /// WinConsole::output().set_font_info_ex(new_info, FontInfoSource::CurrentSize).unwrap();
+    /// WinConsole::output().set_font_info_ex(new_info, false).unwrap();
     /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     /// ```
-    pub fn get_font_info_ex(&self, source: FontInfoSource) -> Result<ConsoleFontInfoEx> {
+    pub fn get_font_info_ex(&self, maximum_window: bool) -> Result<ConsoleFontInfoEx> {
         let handle = self.get_handle();
 
         unsafe {
@@ -986,7 +980,7 @@ impl WinConsole {
 
             let ptr: *mut CONSOLE_FONT_INFOEX = &mut info;
 
-            if GetCurrentConsoleFontEx(**handle, source as i32, ptr) == 0 {
+            if GetCurrentConsoleFontEx(**handle, maximum_window.into(), ptr) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(ConsoleFontInfoEx::from(&info))
