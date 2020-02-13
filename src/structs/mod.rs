@@ -4,6 +4,7 @@ pub mod console_font_info_ex;
 pub mod console_screen_buffer_info;
 pub mod console_screen_buffer_info_ex;
 pub mod console_selection_info;
+pub mod small_rect;
 pub mod coord;
 pub mod focus_event;
 pub mod handle;

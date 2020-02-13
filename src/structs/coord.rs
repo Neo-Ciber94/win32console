@@ -6,7 +6,7 @@ use winapi::_core::fmt::{Formatter, Error};
 /// which origin is (0,0).
 ///
 /// link: [https://docs.microsoft.com/en-us/windows/console/coord-str]
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Hash)]
 pub struct Coord {
     /// x axis position
     pub x: i16,

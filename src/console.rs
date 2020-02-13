@@ -46,7 +46,7 @@ use winapi::{
     },
 };
 use winapi::um::consoleapi::{WriteConsoleA};
-use winapi::um::wincon::{CONSOLE_SELECTION_INFO, CONSOLE_TEXTMODE_BUFFER, CreateConsoleScreenBuffer, GetConsoleSelectionInfo, SetConsoleActiveScreenBuffer, ReadConsoleOutputW};
+use winapi::um::wincon::{CONSOLE_SELECTION_INFO, CONSOLE_TEXTMODE_BUFFER, CreateConsoleScreenBuffer, GetConsoleSelectionInfo, SetConsoleActiveScreenBuffer, ReadConsoleOutputW, FlushConsoleInputBuffer, ScrollConsoleScreenBufferW};
 
 use crate::{
     structs::char_info::CharInfo,
@@ -54,12 +54,13 @@ use crate::{
     structs::console_font_info::ConsoleFontInfo,
     structs::console_font_info_ex::ConsoleFontInfoEx,
     structs::console_read_control::ConsoleReadControl,
-    structs::console_screen_buffer_info::{ConsoleScreenBufferInfo, SmallRect},
+    structs::console_screen_buffer_info::{ConsoleScreenBufferInfo},
     structs::console_screen_buffer_info_ex::ConsoleScreenBufferInfoEx,
     structs::coord::Coord,
     structs::handle::Handle,
     structs::input_record::InputRecord,
-    structs::console_selection_info::ConsoleSelectionInfo
+    structs::console_selection_info::ConsoleSelectionInfo,
+    structs::small_rect::SmallRect
 };
 
 /// Provides an access to the windows console of the current process and provides methods for
@@ -1030,18 +1031,17 @@ impl WinConsole {
     ///
     /// # Examples
     /// ```
-    /// use win32console::structs::console_screen_buffer_info::SmallRect;
     /// use win32console::console::WinConsole;
+    /// use win32console::structs::small_rect::SmallRect;
     /// let window = SmallRect::new(0, 0, 40, 50);
     /// WinConsole::output().set_window_info(true, &window);
     /// ```
     pub fn set_window_info(&self, absolute: bool, window: &SmallRect) -> Result<()> {
         let handle = self.get_handle();
-        let mut small_rect: SMALL_RECT = (*window).into();
-        let small_rect_ptr = &mut small_rect as PSMALL_RECT;
+        let mut small_rect: &SMALL_RECT = &(*window).into();
 
         unsafe {
-            if SetConsoleWindowInfo(**handle, absolute.into(), small_rect_ptr) == 0 {
+            if SetConsoleWindowInfo(**handle, absolute.into(), small_rect) == 0 {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
@@ -1414,6 +1414,41 @@ impl WinConsole {
                 Err(Error::last_os_error())
             } else {
                 Ok(num_buttons)
+            }
+        }
+    }
+
+    /// Moves a block of data in a screen buffer.
+    /// The effects of the move can be limited by specifying a clipping rectangle,
+    /// so the contents of the console screen buffer outside the clipping rectangle are unchanged.
+    ///
+    /// Wraps a call to [ScrollConsoleScreenBufferW]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/scrollconsolescreenbuffer]
+    pub fn scroll_screen_buffer(&self,
+                                scroll_rect: SmallRect,
+                                clip_rect: Option<SmallRect>,
+                                destination: Coord,
+                                fill: CharInfo
+    ) -> Result<()>{
+        let handle = self.get_handle();
+        let chi = &mut fill.into();
+        let srect = &mut scroll_rect.into();
+        let crect = match clip_rect{
+            Some(r) => &mut r.into(),
+            None => null_mut()
+        };
+
+        unsafe{
+            if ScrollConsoleScreenBufferW(
+                **handle,
+                srect,
+                crect,
+                destination.into(),
+                chi) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
             }
         }
     }
@@ -1951,6 +1986,33 @@ impl WinConsole {
         }
     }
 
+    /// Flushes the console input buffer. All input records currently in the input buffer are discarded.
+    ///
+    /// Wraps a call to [FlushConsoleInputBuffer]
+    /// link: [https://docs.microsoft.com/en-us/windows/console/flushconsoleinputbuffer]
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
+    /// the function should be called using `WinConsole::input()` or a valid input handle.
+    ///
+    /// # Examples
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// WinConsole::input().flush_input();
+    /// ```
+    pub fn flush_input(&self) -> Result<()>{
+        let handle = self.get_handle();
+
+        unsafe {
+            if FlushConsoleInputBuffer(**handle) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
+    }
+
     /// Writes the specified `[u8]` buffer of chars in the current cursor position of the console.
     ///
     /// Wraps a call to [WriteConsoleA]
@@ -2101,9 +2163,9 @@ impl WinConsole {
     /// # Examples
     /// ```
     /// use win32console::structs::coord::Coord;
-    /// use win32console::structs::console_screen_buffer_info::SmallRect;
     /// use win32console::console::WinConsole;
     /// use win32console::structs::char_info::CharInfo;
+    /// use win32console::structs::small_rect::SmallRect;
     /// const WIDTH : usize = 40;
     /// const HEIGHT : usize = 30;
     ///

@@ -1,6 +1,6 @@
-use crate::structs::console_screen_buffer_info::SmallRect;
 use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
+use crate::structs::small_rect::SmallRect;
 
 /// Represents a [CONSOLE_SCREEN_BUFFER_INFOEX] which contains extended information about
 /// the console screen buffer.

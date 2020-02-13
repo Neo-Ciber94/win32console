@@ -1,6 +1,6 @@
-use crate::structs::console_screen_buffer_info::SmallRect;
 use crate::structs::coord::Coord;
 use winapi::um::wincon::{CONSOLE_SELECTION_INFO};
+use crate::structs::small_rect::SmallRect;
 
 /// Represents a [CONSOLE_SELECTION_INFO] which contains information for a console selection.
 ///
