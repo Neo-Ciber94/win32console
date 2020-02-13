@@ -3,50 +3,76 @@ use std::{
     io::{Error, ErrorKind, Result},
     iter,
     mem::{MaybeUninit, transmute},
-    slice, str,
+    slice,
+    str,
+    ptr::null_mut
 };
 
 use winapi::{
-    _core::ptr::null_mut,
-    ctypes::c_void,
-    shared::minwindef::MAX_PATH,
     um::{
         consoleapi::{
-            AllocConsole, GetConsoleCP, GetConsoleMode, GetConsoleOutputCP,
-            GetNumberOfConsoleInputEvents, ReadConsoleInputW, ReadConsoleW, SetConsoleMode,
-            WriteConsoleW,
+            WriteConsoleA,
+            AllocConsole,
+            GetConsoleCP,
+            GetConsoleMode,
+            GetConsoleOutputCP,
+            GetNumberOfConsoleInputEvents,
+            ReadConsoleInputW,
+            ReadConsoleW,
+            SetConsoleMode,
+            WriteConsoleW
         },
         fileapi::{CreateFileW, OPEN_EXISTING, ReadFile, WriteFile},
         handleapi::INVALID_HANDLE_VALUE,
         processenv::{GetStdHandle, SetStdHandle},
         winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
         wincon::{
-            CONSOLE_FONT_INFOEX, FillConsoleOutputAttribute, FillConsoleOutputCharacterW,
-            GetConsoleScreenBufferInfo, GetConsoleScreenBufferInfoEx, GetConsoleTitleW,
-            GetCurrentConsoleFontEx, GetLargestConsoleWindowSize, GetNumberOfConsoleMouseButtons,
-            INPUT_RECORD, PeekConsoleInputW, SetConsoleCursorPosition,
-            SetConsoleScreenBufferInfoEx, SetConsoleTextAttribute, SetConsoleTitleW, SetCurrentConsoleFontEx,
+            CONSOLE_FONT_INFOEX,
+            FillConsoleOutputAttribute,
+            FillConsoleOutputCharacterW,
+            GetConsoleScreenBufferInfo,
+            GetConsoleScreenBufferInfoEx,
+            GetConsoleTitleW,
+            GetCurrentConsoleFontEx,
+            GetLargestConsoleWindowSize,
+            GetNumberOfConsoleMouseButtons,
+            INPUT_RECORD,
+            PeekConsoleInputW,
+            SetConsoleCursorPosition,
+            SetConsoleScreenBufferInfoEx,
+            SetConsoleTextAttribute,
+            SetConsoleTitleW,
+            SetCurrentConsoleFontEx,
+            CONSOLE_FONT_INFO,
+            GetCurrentConsoleFont,
+            AttachConsole,
+            CHAR_INFO,
+            CONSOLE_READCONSOLE_CONTROL,
+            CONSOLE_SCREEN_BUFFER_INFO,
+            CONSOLE_SCREEN_BUFFER_INFOEX,
+            FreeConsole,
+            GetConsoleOriginalTitleW,
+            SetConsoleCP,
+            SetConsoleOutputCP,
+            SetConsoleScreenBufferSize,
+            SetConsoleWindowInfo,
+            SMALL_RECT,
+            WriteConsoleOutputW,
+            CONSOLE_SELECTION_INFO,
+            CONSOLE_TEXTMODE_BUFFER,
+            CreateConsoleScreenBuffer,
+            GetConsoleSelectionInfo,
+            SetConsoleActiveScreenBuffer,
+            ReadConsoleOutputW,
+            FlushConsoleInputBuffer,
+            ScrollConsoleScreenBufferW
         },
-        wincon::{CONSOLE_FONT_INFO, GetCurrentConsoleFont},
-        wincon::AttachConsole,
-        wincon::CHAR_INFO,
-        wincon::CONSOLE_READCONSOLE_CONTROL,
-        wincon::CONSOLE_SCREEN_BUFFER_INFO,
-        wincon::CONSOLE_SCREEN_BUFFER_INFOEX,
-        wincon::FreeConsole,
-        wincon::GetConsoleOriginalTitleW,
-        wincon::SetConsoleCP,
-        wincon::SetConsoleOutputCP,
-        wincon::SetConsoleScreenBufferSize,
-        wincon::SetConsoleWindowInfo,
-        wincon::SMALL_RECT,
-        wincon::WriteConsoleOutputW,
         wincontypes::{PCHAR_INFO, PSMALL_RECT},
         winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE},
     },
+    ctypes::c_void,
+    shared::minwindef::MAX_PATH,
 };
-use winapi::um::consoleapi::{WriteConsoleA};
-use winapi::um::wincon::{CONSOLE_SELECTION_INFO, CONSOLE_TEXTMODE_BUFFER, CreateConsoleScreenBuffer, GetConsoleSelectionInfo, SetConsoleActiveScreenBuffer, ReadConsoleOutputW, FlushConsoleInputBuffer, ScrollConsoleScreenBufferW};
 
 use crate::{
     structs::char_info::CharInfo,
@@ -66,8 +92,7 @@ use crate::{
 /// Provides an access to the windows console of the current process and provides methods for
 /// interact with it.
 ///
-/// # Examples
-/// Basic usages:
+/// # Example
 /// ```
 /// use win32console::console::WinConsole;
 ///
@@ -77,11 +102,9 @@ use crate::{
 /// ```
 pub struct WinConsole(Handle);
 
-/// Type of a console handle, you can use this enum to get a handle by calling: [WinConsole::get_std_handle(...)].
+/// Type of a console handle, you can use this enum to get a handle by calling: [`WinConsole::get_std_handle(...)`].
 ///
-/// # Examples
-///
-/// Basic usage:
+/// # Example
 /// ```
 /// use win32console::console::{WinConsole, HandleType};
 ///
@@ -89,11 +112,11 @@ pub struct WinConsole(Handle);
 /// assert!(handle.is_valid());
 /// ```
 pub enum HandleType {
-    /// Represents the [STD_INPUT_HANDLE].
+    /// Represents the [`STD_INPUT_HANDLE`].
     Input,
-    /// Represents the [STD_OUTPUT_HANDLE].
+    /// Represents the [`STD_OUTPUT_HANDLE`].
     Output,
-    /// Represents the [STD_ERROR_HANDLE].
+    /// Represents the [`STD_ERROR_HANDLE`].
     Error,
 }
 
@@ -201,8 +224,13 @@ impl Into<u32> for HandleType {
 impl WinConsole {
     /// Gets the specified handle by type.
     ///
-    /// Wraps a call to [GetStdHandle]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getstdhandle]
+    /// Wraps a call to [GetStdHandle](https://docs.microsoft.com/en-us/windows/console/getstdhandle).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, HandleType};
+    /// let input = WinConsole::get_std_handle(HandleType::Input).unwrap();
+    /// ```
     pub fn get_std_handle(handle_type: HandleType) -> Result<Handle> {
         unsafe {
             let raw_handle = GetStdHandle(handle_type.into());
@@ -218,8 +246,14 @@ impl WinConsole {
 
     /// Sets the specified handle by type.
     ///
-    /// Wraps a call to [SetStdHandle]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setstdhandle]
+    /// Wraps a call to [SetStdHandle](https://docs.microsoft.com/en-us/windows/console/setstdhandle).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, HandleType};
+    /// let input = WinConsole::get_std_handle(HandleType::Input).unwrap();
+    /// WinConsole::set_std_handle(HandleType::Input, input);
+    /// ```
     pub fn set_std_handle(handle_type: HandleType, handle: Handle) -> Result<()> {
         unsafe {
             if SetStdHandle(handle_type.into(), *handle) == 0 {
@@ -230,15 +264,20 @@ impl WinConsole {
         }
     }
 
-    /// Creates a Handle to the standard input file [CONIN$], if the input
-    /// is being redirected the value returned by [get_std_handle] cannot be used
-    /// in functions that requires the console handle, but the returned [Handle]
+    /// Creates a Handle to the standard input file [`CONIN$`], if the input
+    /// is being redirected the value returned by [`get_std_handle`] cannot be used
+    /// in functions that requires the console handle, but the returned [`Handle`]
     /// of this method can be used even if the input is being redirected.
     ///
-    /// More info about console handles: [https://docs.microsoft.com/en-us/windows/console/console-handles?redirectedfrom=MSDN]
+    /// More info about console handles: `https://docs.microsoft.com/en-us/windows/console/console-handles`
     ///
-    /// Wraps a call to [CreateFileW].
-    /// link: [https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew]
+    /// Wraps a call to [CreateFileW](https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let handle = WinConsole::get_current_input_handle().unwrap();
+    /// ```
     pub fn get_current_input_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONIN$\0".encode_utf16().collect();
@@ -264,15 +303,20 @@ impl WinConsole {
         Ok(Handle::new_owned(raw_handle))
     }
 
-    /// Creates a Handle to the standard output file [CONOUT$], if the input
-    /// is being redirected the value returned by [get_std_handle] cannot be used
-    /// in functions that requires the console handle, but the returned [Handle]
+    /// Creates a Handle to the standard output file [`CONOUT$`], if the input
+    /// is being redirected the value returned by [`get_std_handle`] cannot be used
+    /// in functions that requires the console handle, but the returned [`Handle`]
     /// of this method can be used even if the output is being redirected.
     ///
-    /// More info about console handles: [https://docs.microsoft.com/en-us/windows/console/console-handles?redirectedfrom=MSDN]
+    /// More info about console handles: [`https://docs.microsoft.com/en-us/windows/console/console-handles`]
     ///
-    /// Wraps a call to [CreateFileW].
-    /// link: [https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew]
+    /// Wraps a call to [CreateFileW](https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let handle = WinConsole::get_current_output_handle().unwrap();
+    /// ```
     pub fn get_current_output_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONOUT$\0".encode_utf16().collect();
@@ -301,29 +345,23 @@ impl WinConsole {
 
 // Factory methods
 impl WinConsole {
-    /// Gets a console with the [STD_INPUT_HANDLE].
+    /// Gets a console with the [`STD_INPUT_HANDLE`].
     ///
-    /// # Examples
-    ///
-    /// Basic usages:
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::input();
-    /// // Write using the input
     /// ```
     pub fn input() -> Self {
         WinConsole(WinConsole::get_std_handle(HandleType::Input).unwrap())
     }
 
-    /// Gets a console with the [STD_OUTPUT_HANDLE].
+    /// Gets a console with the [`STD_OUTPUT_HANDLE`].
     ///
-    /// # Examples
-    ///
-    /// Basic usages:
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::output();
-    /// // Read using the output
     /// ```
     pub fn output() -> Self {
         WinConsole(WinConsole::get_std_handle(HandleType::Output).unwrap())
@@ -332,13 +370,10 @@ impl WinConsole {
     /// Gets a console with current input handle.
     /// The handle will be always the current input handle even is the input is being redirected.
     ///
-    /// # Examples
-    ///
-    /// Basic usages:
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::current_input();
-    /// // Write using the input
     /// ```
     pub fn current_input() -> Self {
         WinConsole(WinConsole::get_current_input_handle().unwrap())
@@ -347,13 +382,10 @@ impl WinConsole {
     /// Gets a console with the current output handle.
     /// The handle will be always the current input handle even is the output is being redirected.
     ///
-    /// # Examples
-    ///
-    /// Basic usages:
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::current_output();
-    /// // Read using the output
     /// ```
     pub fn current_output() -> Self {
         WinConsole(WinConsole::get_current_output_handle().unwrap())
@@ -372,6 +404,8 @@ impl WinConsole {
     ///
     /// # Errors
     /// - If the calling process have a console attached, `free_console` should be called first.
+    ///
+    /// Wraps a call to [AllocConsole](https://docs.microsoft.com/en-us/windows/console/allocconsole).
     pub fn alloc_console() -> Result<()> {
         unsafe {
             if AllocConsole() == 0 {
@@ -389,6 +423,8 @@ impl WinConsole {
     /// * pid: Use the console of the specified process.
     /// * ATTACH_PARENT_PROCESS (0xFFFFFFFF): Use the console of the parent of the current process.
     ///
+    /// Wraps a call to [AttachConsole](https://docs.microsoft.com/en-us/windows/console/attachconsole).
+    ///
     /// # Errors
     /// - If the calling process is already attached to a console.
     /// - If the specified process does not have a console.
@@ -405,6 +441,8 @@ impl WinConsole {
 
     /// Detaches the calling process from its console.
     ///
+    /// Wraps a call to [FreeConsole](https://docs.microsoft.com/en-us/windows/console/freeconsole).
+    ///
     /// # Errors
     /// - If the calling process is not already attached to a console.
     pub fn free_console() -> Result<()> {
@@ -419,13 +457,12 @@ impl WinConsole {
 
     /// Sets the title of the current console.
     ///
-    /// Wraps a call to [SetConsoleTitle]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoletitle]
+    /// Wraps a call to [SetConsoleTitle](https://docs.microsoft.com/en-us/windows/console/setconsoletitle).
     ///
     /// # Errors
     /// - No documented errors.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
@@ -466,13 +503,12 @@ impl WinConsole {
 
     /// Gets the title of the current console.
     ///
-    /// Wraps a call to [GetConsoleTitle]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsoletitle]
+    /// Wraps a call to [GetConsoleTitle](https://docs.microsoft.com/en-us/windows/console/getconsoletitle).
     ///
     /// # Errors
     /// - No documented errors.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
@@ -513,10 +549,12 @@ impl WinConsole {
 
     /// Retrieves the original title for the current console window.
     ///
+    /// Wraps a call to [GetConsoleOriginalTitleW](https://docs.microsoft.com/en-us/windows/console/getconsoleoriginaltitle).
+    ///
     /// # Errors
     /// - If f the buffer is not large enough to store the title.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let title = WinConsole::get_original_title().unwrap();
@@ -540,10 +578,9 @@ impl WinConsole {
     /// Gets the input code page used by the console associated with the calling process.
     /// A console uses its input code page to translate keyboard input into the corresponding character value.
     ///
-    /// See code pages: [https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers?redirectedfrom=MSDN]
+    /// See code pages: [`https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers`]
     ///
-    /// Wraps a call to [GetConsoleCP]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolecp]
+    /// Wraps a call to [GetConsoleCP](https://docs.microsoft.com/en-us/windows/console/getconsolecp).
     pub fn get_input_code_page() -> Result<u32> {
         unsafe {
             let code_page = GetConsoleCP();
@@ -559,10 +596,9 @@ impl WinConsole {
     /// A console uses its output code page to translate the character values written by the various output
     /// functions into the images displayed in the console window.
     ///
-    /// See code pages: [https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers?redirectedfrom=MSDN]
+    /// See code pages: [`https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers`]
     ///
-    /// Wraps a call to [GetConsoleOutputCP]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsoleoutputcp]
+    /// Wraps a call to [GetConsoleOutputCP](https://docs.microsoft.com/en-us/windows/console/getconsoleoutputcp).
     pub fn get_output_code_page() -> Result<u32> {
         unsafe {
             let code_page = GetConsoleOutputCP();
@@ -577,8 +613,7 @@ impl WinConsole {
     /// Sets the input code page used by the console associated with the calling process.
     /// A console uses its input code page to translate keyboard input into the corresponding character value.
     ///
-    /// Wraps a call to [SetConsoleCP]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolecp]
+    /// Wraps a call to [SetConsoleCP](https://docs.microsoft.com/en-us/windows/console/setconsolecp).
     pub fn set_input_code(code_page: u32) -> Result<()> {
         unsafe {
             if SetConsoleCP(code_page) == 0 {
@@ -593,8 +628,7 @@ impl WinConsole {
     /// A console uses its output code page to translate the character values written by the various output functions
     /// into the images displayed in the console window.
     ///
-    /// Wraps a call to [SetConsoleOutputCP]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoleoutputcp]
+    /// Wraps a call to [SetConsoleOutputCP](https://docs.microsoft.com/en-us/windows/console/setconsoleoutputcp).
     pub fn set_output_code(code_page: u32) -> Result<()> {
         unsafe {
             if SetConsoleOutputCP(code_page) == 0 {
@@ -607,10 +641,9 @@ impl WinConsole {
 
     /// Gets information about the current console selection.
     ///
-    /// Wraps a call to [GetConsoleSelectionInfo].
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsoleselectioninfo]
+    /// Wraps a call to [GetConsoleSelectionInfo](https://docs.microsoft.com/en-us/windows/console/getconsoleselectioninfo).
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let info = WinConsole::get_selection_info().unwrap();
@@ -631,10 +664,9 @@ impl WinConsole {
     /// - `dwDesiredAccess` = GENERIC_READ | GENERIC_WRITE`
     /// - `dwShareMode` = FILE_SHARE_READ | FILE_SHARE_WRITE
     ///
-    /// Wraps a call to [CreateConsoleScreenBuffer]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer]
+    /// Wraps a call to [CreateConsoleScreenBuffer](https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer).
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, HandleType};
     /// use std::time::Duration;
@@ -681,8 +713,7 @@ impl WinConsole {
 
     /// Sets the specified screen buffer to be the currently displayed console screen buffer.
     ///
-    /// Wraps a call to [SetConsoleActiveScreenBuffer]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoleactivescreenbuffer]
+    /// Wraps a call to [SetConsoleActiveScreenBuffer](https://docs.microsoft.com/en-us/windows/console/setconsoleactivescreenbuffer).
     pub fn set_active_console_screen_buffer(handle: &Handle) -> Result<()> {
         unsafe {
             if SetConsoleActiveScreenBuffer(**handle) == 0 {
@@ -702,13 +733,12 @@ impl WinConsole {
 
     /// Gets the current mode of the console
     ///
-    /// Wraps a call to [GetConsoleMode]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolemode]
+    /// Wraps a call to [GetConsoleMode](https://docs.microsoft.com/en-us/windows/console/getconsolemode).
     ///
     /// # Errors
     /// - No documented errors.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleMode};
     ///
@@ -736,13 +766,12 @@ impl WinConsole {
 
     /// Sets the current mode of the console
     ///
-    /// Wraps a call to [GetConsoleMode]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolemode]
+    /// Wraps a call to [GetConsoleMode](https://docs.microsoft.com/en-us/windows/console/setconsolemode).
     ///
     /// # Errors
     /// - No documented errors.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleMode};
     ///
@@ -787,14 +816,13 @@ impl WinConsole {
     /// Sets extended information about the console font.
     /// This function change the font into of all the current values in the console.
     ///
-    /// Wraps a call to [SetCurrentConsoleFontEx]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setcurrentconsolefontex]
+    /// Wraps a call to [SetCurrentConsoleFontEx](https://docs.microsoft.com/en-us/windows/console/setcurrentconsolefontex).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, FontInfoSource};
     ///
@@ -827,16 +855,15 @@ impl WinConsole {
 
     /// Gets information about the console font.
     ///
-    /// Wraps a call to [GetCurrentConsoleFont]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefont]
+    /// Wraps a call to [GetCurrentConsoleFont](https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefont).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
-    /// use win32console::console::{WinConsole, FontInfoSource};    ///
+    /// use win32console::console::{WinConsole, FontInfoSource};
     /// let info = WinConsole::output().get_font_info(FontInfoSource::CurrentSize).unwrap();
     /// ```
     pub fn get_font_info(&self, source: FontInfoSource) -> Result<ConsoleFontInfo> {
@@ -854,14 +881,13 @@ impl WinConsole {
 
     /// Gets extended information about the console font.
     ///
-    /// Wraps a call to [GetCurrentConsoleFontEx]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefontex]
+    /// Wraps a call to [GetCurrentConsoleFontEx](https://docs.microsoft.com/en-us/windows/console/getcurrentconsolefontex).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, FontInfoSource};
     ///
@@ -894,8 +920,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// Wraps a call to [GetConsoleScreenBufferInfo]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfo]
+    /// Wraps a call to [GetConsoleScreenBufferInfo](https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfo).
     ///
     /// ```
     /// use win32console::console::{WinConsole, ConsoleTextAttribute};
@@ -916,14 +941,13 @@ impl WinConsole {
 
     /// Gets extended information of the console screen buffer.
     ///
-    /// Wraps a call to [GetConsoleScreenBufferInfoEx]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfoex]
+    /// Wraps a call to [GetConsoleScreenBufferInfoEx](https://docs.microsoft.com/en-us/windows/console/getconsolescreenbufferinfoex).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleTextAttribute};
     ///
@@ -951,14 +975,13 @@ impl WinConsole {
 
     /// Sets the extended console screen buffer information.
     ///
-    /// Wraps a call to [SetConsoleScreenBufferInfoEx]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolescreenbufferinfoex]
+    /// Wraps a call to [SetConsoleScreenBufferInfoEx](https://docs.microsoft.com/en-us/windows/console/setconsolescreenbufferinfoex).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleTextAttribute};
     ///
@@ -984,14 +1007,13 @@ impl WinConsole {
 
     /// Set the size of the console screen buffer.
     ///
-    /// Wraps a call to [SetConsoleScreenBufferSize].
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolescreenbuffersize]
+    /// Wraps a call to [SetConsoleScreenBufferSize](https://docs.microsoft.com/en-us/windows/console/setconsolescreenbuffersize).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::coord::Coord;
@@ -1018,8 +1040,7 @@ impl WinConsole {
     /// If it is `FALSE`, the coordinates are relative to the current window-corner coordinates.
     /// - `window`: specifies the new upper-left and lower-right corners of the window.
     ///
-    /// Wraps a call to [SetConsoleWindowInfo]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolewindowinfo]
+    /// Wraps a call to [SetConsoleWindowInfo](https://docs.microsoft.com/en-us/windows/console/setconsolewindowinfo).
     ///
     /// # Remarks
     /// - The function may return an error when using the console of an IDE.
@@ -1029,7 +1050,7 @@ impl WinConsole {
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     /// - If the `window` parameter is too big.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::small_rect::SmallRect;
@@ -1051,14 +1072,13 @@ impl WinConsole {
 
     /// Sets the position of the cursor. don't confuse with mouse cursor.
     ///
-    /// Wraps a call to [SetConsoleCursorPosition]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolecursorposition]
+    /// Wraps a call to [SetConsoleCursorPosition](https://docs.microsoft.com/en-us/windows/console/setconsolecursorposition).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
@@ -1117,7 +1137,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
@@ -1193,10 +1213,9 @@ impl WinConsole {
         Ok(())
     }
 
-    /// Fills the content of the console with the specified [char].
+    /// Fills the content of the console with the specified [`char`].
     ///
-    /// Wraps a call to [FillConsoleOutputCharacterW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputcharacter]
+    /// Wraps a call to [FillConsoleOutputCharacterW](https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputcharacter).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
@@ -1235,14 +1254,13 @@ impl WinConsole {
 
     /// Fills the content of the console with the specified attribute.
     ///
-    /// Wraps a call to [FillConsoleOutputAttribute]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputattribute]
+    /// Wraps a call to [FillConsoleOutputAttribute](https://docs.microsoft.com/en-us/windows/console/fillconsoleoutputattribute).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let len = 100;
@@ -1285,14 +1303,13 @@ impl WinConsole {
     ///
     /// - `attribute`: the attributes to use, those attributes can be access using `ConsoleTextAttribute` struct.
     ///
-    /// Wraps a call to [SetConsoleTextAttribute]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsoletextattribute]
+    /// Wraps a call to [SetConsoleTextAttribute](https://docs.microsoft.com/en-us/windows/console/setconsoletextattribute).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleTextAttribute};
     ///
@@ -1321,7 +1338,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::{WinConsole, ConsoleTextAttribute};
     ///
@@ -1338,14 +1355,13 @@ impl WinConsole {
 
     /// Gets the largest size the console window can get.
     ///
-    /// Wraps a call to [GetLargestConsoleWindowSize]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getlargestconsolewindowsize]
+    /// Wraps a call to [GetLargestConsoleWindowSize](https://docs.microsoft.com/en-us/windows/console/getlargestconsolewindowsize).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let max_size = WinConsole::output().get_largest_window_size().unwrap();
@@ -1366,14 +1382,13 @@ impl WinConsole {
 
     /// Gets the number of unread input events.
     ///
-    /// Wraps a call to [GetNumberOfConsoleInputEvents]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getnumberofconsoleinputevents]
+    /// Wraps a call to [GetNumberOfConsoleInputEvents](https://docs.microsoft.com/en-us/windows/console/getnumberofconsoleinputevents).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let unread_events = WinConsole::input().get_number_of_input_events().unwrap();
@@ -1393,13 +1408,12 @@ impl WinConsole {
 
     /// Gets the number of mouse buttons used for the mouse available for this console.
     ///
-    /// Wraps a call to [GetNumberOfConsoleMouseButtons]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/getnumberofconsolemousebuttons]
+    /// Wraps a call to [GetNumberOfConsoleMouseButtons](https://docs.microsoft.com/en-us/windows/console/getnumberofconsolemousebuttons).
     ///
     /// # Errors
     /// - No documented errors.
     ///
-    /// # Examples:
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let x = WinConsole::input().get_number_of_mouse_buttons().unwrap();
@@ -1422,8 +1436,10 @@ impl WinConsole {
     /// The effects of the move can be limited by specifying a clipping rectangle,
     /// so the contents of the console screen buffer outside the clipping rectangle are unchanged.
     ///
-    /// Wraps a call to [ScrollConsoleScreenBufferW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/scrollconsolescreenbuffer]
+    /// Wraps a call to [ScrollConsoleScreenBufferW](https://docs.microsoft.com/en-us/windows/console/scrollconsolescreenbuffer).
+    ///
+     /// # Errors
+    /// - No documented errors.
     pub fn scroll_screen_buffer(&self,
                                 scroll_rect: SmallRect,
                                 clip_rect: Option<SmallRect>,
@@ -1459,7 +1475,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
     /// use win32console::console::WinConsole;
@@ -1503,7 +1519,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::input_record::InputRecord::KeyEvent;
@@ -1531,10 +1547,9 @@ impl WinConsole {
         Ok(buffer)
     }
 
-    /// Fills the specified buffer with [InputRecord] from the console.
+    /// Fills the specified buffer with [`InputRecord`] from the console.
     ///
-    /// Wraps a call to [ReadConsoleInputW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsoleinput]
+    /// Wraps a call to [ReadConsoleInputW](https://docs.microsoft.com/en-us/windows/console/readconsoleinput).
     ///
     /// # Returns
     /// The number of input events read.
@@ -1543,7 +1558,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::structs::input_record::InputRecord;
@@ -1598,7 +1613,7 @@ impl WinConsole {
         }
     }
 
-    /// Fills the specified buffer with the unread [InputRecord] from the console.
+    /// Fills the specified buffer with the unread [`InputRecord`] from the console.
     ///
     /// # Returns
     /// The number of input events read.
@@ -1607,10 +1622,9 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// Wraps a call to [PeekConsoleInputW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/peekconsoleinput]
+    /// Wraps a call to [PeekConsoleInputW](https://docs.microsoft.com/en-us/windows/console/peekconsoleinput).
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::structs::input_record::InputRecord;
@@ -1673,7 +1687,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     ///
@@ -1695,7 +1709,7 @@ impl WinConsole {
         }
     }
 
-    /// Fills the given `[u8]` buffer with characters from the standard input.
+    /// Fills the given `u8` buffer with characters from the standard input.
     ///
     /// # Returns
     /// The number of characters read.
@@ -1704,7 +1718,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::console::WinConsole;
@@ -1724,10 +1738,9 @@ impl WinConsole {
         Ok(written)
     }
 
-    /// Fills the given `[u16]` buffer with characters from the standard input.
+    /// Fills the given `u16` buffer with characters from the standard input.
     ///
-    /// Wraps a call to [ReadConsoleW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    /// Wraps a call to [ReadConsoleW](https://docs.microsoft.com/en-us/windows/console/readconsole).
     ///
     /// # Returns
     /// The number of characters read.
@@ -1736,7 +1749,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::console::WinConsole;
@@ -1805,14 +1818,13 @@ impl WinConsole {
         }
     }
 
-    /// Fills the given `[u8]` buffer with characters from the standard input using the specified
+    /// Fills the given `u8` buffer with characters from the standard input using the specified
     /// console read control.
     ///
     /// - `control`: provides information used for a read operation as the number of chars
     /// to skip or the end signal.
     ///
-    /// Wraps a call to [ReadConsoleA]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    /// Wraps a call to [ReadConsoleA](https://docs.microsoft.com/en-us/windows/console/readconsole).
     ///
     /// # Returns
     /// The number of characters read.
@@ -1821,7 +1833,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::console::WinConsole;
@@ -1862,14 +1874,13 @@ impl WinConsole {
         Ok(written)
     }
 
-    /// Fills the given `[u16]` buffer with characters from the standard input using the specified
+    /// Fills the given `u16` buffer with characters from the standard input using the specified
     /// console read control.
     ///
     /// - `control`: provides information used for a read operation as the number of chars
     /// to skip or the end signal.
     ///
-    /// Wraps a call to [ReadConsoleW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsole]
+    /// Wraps a call to [ReadConsoleW](https://docs.microsoft.com/en-us/windows/console/readconsole).
     ///
     /// # Returns
     /// The number of characters read.
@@ -1878,7 +1889,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use std::mem::MaybeUninit;
     /// use win32console::console::WinConsole;
@@ -1958,8 +1969,7 @@ impl WinConsole {
     /// Reads character and color attribute data from a rectangular block of character cells in a console screen buffer,
     /// and the function writes the data to a rectangular block at a specified location in the destination buffer.
     ///
-    /// Wraps a call to [ReadConsoleOutputW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/readconsoleoutput]
+    /// Wraps a call to [ReadConsoleOutputW](https://docs.microsoft.com/en-us/windows/console/readconsoleoutput).
     pub fn read_char_buffer(&self, buffer_size: Coord, buffer_coord: Coord, read_region: &mut SmallRect) -> Result<Vec<CharInfo>>{
         let handle = self.get_handle();
         let length = buffer_size.x * buffer_size.y;
@@ -1988,14 +1998,13 @@ impl WinConsole {
 
     /// Flushes the console input buffer. All input records currently in the input buffer are discarded.
     ///
-    /// Wraps a call to [FlushConsoleInputBuffer]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/flushconsoleinputbuffer]
+    /// Wraps a call to [FlushConsoleInputBuffer](https://docs.microsoft.com/en-us/windows/console/flushconsoleinputbuffer).
     ///
     /// # Errors
     /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
     /// the function should be called using `WinConsole::input()` or a valid input handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// WinConsole::input().flush_input();
@@ -2013,10 +2022,9 @@ impl WinConsole {
         }
     }
 
-    /// Writes the specified `[u8]` buffer of chars in the current cursor position of the console.
+    /// Writes the specified `u8` buffer of chars in the current cursor position of the console.
     ///
-    /// Wraps a call to [WriteConsoleA]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsole]
+    /// Wraps a call to [WriteConsoleA](https://docs.microsoft.com/en-us/windows/console/writeconsole).
     ///
     /// # Returns
     /// The number of characters written.
@@ -2025,7 +2033,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
@@ -2079,8 +2087,7 @@ impl WinConsole {
 
     /// Writes the specified buffer of chars in the current cursor position of the console.
     ///
-    /// Wraps a call to [WriteConsoleW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsole]
+    /// Wraps a call to [WriteConsoleW](https://docs.microsoft.com/en-us/windows/console/writeconsole).
     ///
     /// # Returns
     /// The number of characters written.
@@ -2089,7 +2096,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let x = "Hello World!".encode_utf16().collect::<Vec<u16>>();
@@ -2144,9 +2151,9 @@ impl WinConsole {
 
     /// Writes the given buffer of `CharInfo` into the screen buffer.
     ///
-    /// Wraps a call to [WriteConsoleOutputW]
-    /// link: [https://docs.microsoft.com/en-us/windows/console/writeconsoleoutput]
-    /// see also: [https://www.randygaul.net/2011/11/16/windows-console-game-writing-to-the-console/]
+    /// Wraps a call to [WriteConsoleOutputW](https://docs.microsoft.com/en-us/windows/console/writeconsoleoutput).
+    ///
+    /// See also: [`https://www.randygaul.net/2011/11/16/windows-console-game-writing-to-the-console/`]
     ///
     /// - `buffer_size`: the size of the `buffer` in rows and columns.
     /// - `buffer_start`: the origin in the `buffer` where start to take the characters to write, typically (0,0).
@@ -2160,7 +2167,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::structs::coord::Coord;
     /// use win32console::console::WinConsole;
@@ -2259,7 +2266,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
@@ -2289,7 +2296,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
@@ -2319,7 +2326,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
@@ -2347,7 +2354,7 @@ impl WinConsole {
     /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
     /// the function should be called using `WinConsole::output()` or a valid output handle.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
