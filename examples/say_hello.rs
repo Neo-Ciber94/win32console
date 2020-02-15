@@ -11,7 +11,7 @@ const SPACE : u16 = 0x20;
 
 fn main() {
     // Clears the screen
-    WinConsole::output().clear();
+    WinConsole::output().clear().expect("Cannot clear the screen");
 
     // Writes to the screen using the color 'Dark Red'
     write_color_str("What's your name? ", ConsoleColor::DarkRed);
@@ -50,14 +50,14 @@ fn read_string() -> String{
                         ENTER => { break; }     // Exit on [Enter] press
                         SPACE => {
                             // Write the whitespace to the screen and string buffer
-                            WinConsole::output().write_utf8(" ".as_bytes());
+                            WinConsole::output().write_utf8(" ".as_bytes()).unwrap();
                             buffer.push(' ');
                         },
                         BACKSPACE => {
                             // If the buffer is not empty removes the last char from the screen
                             // and string buffer.
                             if !buffer.is_empty(){
-                                WinConsole::output().write_utf8(b"\x08 \x08");
+                                WinConsole::output().write_utf8(b"\x08 \x08").unwrap();
                                 buffer.pop();
                             }
                         },
@@ -78,7 +78,7 @@ fn write_char(char_value: char){
     // Store the encode value to teh buffer
     char_value.encode_utf8(&mut buffer);
     // Write the utf8 buffer to the screen
-    WinConsole::output().write_utf8(&buffer);
+    WinConsole::output().write_utf8(&buffer).unwrap();
 }
 
 fn write_color_str(value: &str, color: ConsoleColor){
@@ -86,11 +86,11 @@ fn write_color_str(value: &str, color: ConsoleColor){
     let old_color = WinConsole::output().get_foreground_color().unwrap();
 
     // Sets the new color
-    WinConsole::output().set_foreground_color(color);
+    WinConsole::output().set_foreground_color(color).unwrap();
     // Write with the new color
-    WinConsole::output().write_utf8(value.as_bytes());
+    WinConsole::output().write_utf8(value.as_bytes()).unwrap();
     // Resets the color
-    WinConsole::output().set_foreground_color(old_color);
+    WinConsole::output().set_foreground_color(old_color).unwrap();
 }
 
 fn write_color_string(value: String, color: ConsoleColor){
@@ -98,11 +98,11 @@ fn write_color_string(value: String, color: ConsoleColor){
     let old_color = WinConsole::output().get_foreground_color().unwrap();
 
     // Sets the new color
-    WinConsole::output().set_foreground_color(color);
+    WinConsole::output().set_foreground_color(color).unwrap();
     // Write with the new color
-    WinConsole::output().write_utf8(value.as_bytes());
+    WinConsole::output().write_utf8(value.as_bytes()).unwrap();
     // Resets the color
-    WinConsole::output().set_foreground_color(old_color);
+    WinConsole::output().set_foreground_color(old_color).unwrap();
 }
 
 fn with_color<R : Sized, F : Fn() -> R>(color: ConsoleColor, func: F) -> R{
@@ -110,11 +110,11 @@ fn with_color<R : Sized, F : Fn() -> R>(color: ConsoleColor, func: F) -> R{
     let old_color = WinConsole::output().get_foreground_color().unwrap();
 
     // Sets the new color
-    WinConsole::output().set_foreground_color(color);
+    WinConsole::output().set_foreground_color(color).unwrap();
     // Calls the function that may try to write using WinConsole
     let result = func();
     // Resets the color
-    WinConsole::output().set_foreground_color(old_color);
+    WinConsole::output().set_foreground_color(old_color).unwrap();
 
     // Returns the result provided by the function
     result

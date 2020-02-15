@@ -88,9 +88,13 @@ use crate::{
     structs::console_selection_info::ConsoleSelectionInfo,
     structs::small_rect::SmallRect
 };
-use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO};
+use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO, GetConsoleDisplayMode, CONSOLE_FULLSCREEN_MODE, CONSOLE_WINDOWED_MODE, SetConsoleDisplayMode, COORD, CONSOLE_FULLSCREEN, CONSOLE_FULLSCREEN_HARDWARE, GetConsoleWindow};
 use crate::structs::console_history_info::ConsoleHistoryInfo;
 use crate::structs::console_cursor_info::ConsoleCursorInfo;
+use winapi::um::winnt::HANDLE;
+use winapi::shared::windef::RECT;
+use winapi::um::winuser::{MONITORINFO, GetMonitorInfoA, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY, GetWindowRect};
+use winapi::shared::windef::HWND__;
 
 /// Provides an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -118,7 +122,7 @@ pub struct WinConsole(Handle);
 ///
 /// [`get_std_handle`]: struct.WinConsole.html#method.get_std_handle
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HandleType {
     /// Represents the `STD_INPUT_HANDLE`.
     Input = STD_INPUT_HANDLE,
@@ -126,6 +130,29 @@ pub enum HandleType {
     Output = STD_OUTPUT_HANDLE,
     /// Represents the `STD_ERROR_HANDLE`.
     Error = STD_ERROR_HANDLE
+}
+
+/// The display mode of the console.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ConsoleDisplayMode {
+    Unknown,
+    /// Full-screen console. The console is in this mode as soon as the window is maximized.
+    /// At this point, the transition to full-screen mode can still fail.
+    FullScreen = CONSOLE_FULLSCREEN,
+    /// Full-screen console communicating directly with the video hardware.
+    /// This mode is set after the console is in `CONSOLE_FULLSCREEN` mode to indicate that the transition to full-screen mode has completed.
+    FullScreenHardware = CONSOLE_FULLSCREEN_HARDWARE
+}
+
+/// The display mode of the console
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum DisplayMode{
+    /// Text is displayed in full-screen mode.
+    FullScreen = CONSOLE_FULLSCREEN_MODE,
+    /// Text is displayed in a console window.
+    Windowed = CONSOLE_WINDOWED_MODE
 }
 
 /// Wraps constants values of the console modes.
@@ -153,7 +180,7 @@ pub struct ConsoleTextAttribute;
 ///
 /// let handle = WinConsole::create_console_screen_buffer_with_options(options).unwrap();
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ConsoleOptions{
     // The access to the console screen buffer.
     desired_access: u32,
@@ -729,6 +756,28 @@ impl WinConsole {
         }
     }
 
+    /// Retrieves the display mode of the current console.
+    ///
+    /// Wraps a call to [GetConsoleDisplayMode](https://docs.microsoft.com/en-us/windows/console/getconsoledisplaymode).
+    pub fn get_display_mode() -> Result<ConsoleDisplayMode>{
+        unsafe{
+            let mut mode = 0;
+            if GetConsoleDisplayMode(&mut mode) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                match mode{
+                    1 => Ok(ConsoleDisplayMode::FullScreen),
+                    2 => Ok(ConsoleDisplayMode::FullScreenHardware),
+                    // For some reason the function always return 0, there is not documentation
+                    // for that value
+                    _ => Ok(ConsoleDisplayMode::Unknown)
+                    //c => panic!("Invalid display mode: {}", c)
+                }
+            }
+        }
+    }
+
     /// Gets information about the current console selection.
     ///
     /// Wraps a call to [GetConsoleSelectionInfo](https://docs.microsoft.com/en-us/windows/console/getconsoleselectioninfo).
@@ -930,6 +979,89 @@ impl WinConsole {
         }
     }
 
+    /// Retrieves the window handle used by the console associated with the calling process.
+    /// The return value is a `Some(Handle)` to the window used by the console associated with the calling process or
+    /// `None` if there is no such associated console.
+    ///
+    /// Wraps a call to [GetConsoleWindow](https://docs.microsoft.com/en-us/windows/console/getconsolewindow).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let handle = WinConsole::get_window().unwrap();
+    /// assert!(!handle.is_null());
+    /// ```
+    pub fn get_window() -> Option<Handle>{
+        unsafe{
+            let handle = GetConsoleWindow() as HANDLE;
+            if handle.is_null(){
+                None
+            }
+            else{
+                Some(Handle::new(handle))
+            }
+        }
+    }
+
+    /// Gets the current console mode.
+    ///
+    /// # Remarks
+    /// The method [`get_display_mode`] don't provide the actual mode of the console which is set by
+    /// [`set_display_mode`], this method use the current console window handle to check if the
+    /// windows is fullscreen or windowed.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, DisplayMode};
+    /// let mode = WinConsole::get_actual_display_mode().unwrap();
+    /// if mode == DisplayMode::FullScreen{
+    ///     WinConsole::output().write_utf8("Is fullscreen".as_bytes()).unwrap();
+    /// }
+    /// else{
+    ///     WinConsole::output().write_utf8("Is windowed".as_bytes()).unwrap();
+    /// }
+    /// ```
+    ///
+    /// [`get_display_mode`]: #method.get_display_mode
+    /// [`set_display_mode`]: #method.set_display_mode
+    pub fn get_actual_display_mode() -> Result<DisplayMode>{
+        match WinConsole::get_window(){
+            // https://stackoverflow.com/a/55542400/9307869
+            Some(ref mut handle) => {
+                let mut window : RECT = unsafe { std::mem::zeroed() };
+                let mut monitor_info : MONITORINFO = unsafe { std::mem::zeroed() };
+                monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+
+                unsafe{
+                    if GetMonitorInfoA(MonitorFromWindow(**handle as *mut HWND__, MONITOR_DEFAULTTOPRIMARY), &mut monitor_info) == 0{
+                        return Err(Error::last_os_error());
+                    }
+                    else{
+                        if GetWindowRect(**handle as *mut HWND__, &mut window) == 0{
+                            return Err(Error::last_os_error());
+                        }
+
+                        let is_fullscreen =
+                            window.bottom == monitor_info.rcMonitor.bottom &&
+                            window.right == monitor_info.rcMonitor.right &&
+                            window.left == monitor_info.rcMonitor.left &&
+                            window.top == monitor_info.rcMonitor.top;
+
+                        let display_mode = match is_fullscreen{
+                            true => DisplayMode::FullScreen,
+                            false => DisplayMode::Windowed
+                        };
+
+                        Ok(display_mode)
+                    }
+                }
+            },
+            None => {
+                Err(Error::new(ErrorKind::InvalidData, "Cannot get the window handle"))
+            }
+        }
+    }
+
     // Instance methods
 
     /// Gets the handle used for this console, which will be provided by the `handle_provider`.
@@ -1016,6 +1148,35 @@ impl WinConsole {
         match self.get_mode() {
             Ok(state) => Ok((state & mode) != 0),
             Err(error) => Err(error),
+        }
+    }
+
+    /// Sets the display mode of the specified console screen buffer and returns the new dimensions
+    /// of the console buffer.
+    ///
+    /// Wraps a call to [SetConsoleDisplayMode](https://docs.microsoft.com/en-us/windows/console/setconsoledisplaymode).
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, DisplayMode};
+    /// WinConsole::output().set_display_mode(DisplayMode::FullScreen)
+    ///                     .expect("Cannot change to fullscreen");
+    /// ```
+    pub fn set_display_mode(&self, mode: DisplayMode) -> Result<Coord>{
+        let handle = self.get_handle();
+
+        unsafe{
+            let mut new_screen_buffer_dimensions : COORD = std::mem::zeroed();
+            if SetConsoleDisplayMode(**handle, mode as u32, &mut new_screen_buffer_dimensions) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(Coord::from(new_screen_buffer_dimensions))
+            }
         }
     }
 
