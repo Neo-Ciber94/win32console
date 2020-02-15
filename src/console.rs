@@ -88,8 +88,9 @@ use crate::{
     structs::console_selection_info::ConsoleSelectionInfo,
     structs::small_rect::SmallRect
 };
-use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo};
+use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO};
 use crate::structs::console_history_info::ConsoleHistoryInfo;
+use crate::structs::console_cursor_info::ConsoleCursorInfo;
 
 /// Provides an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -865,6 +866,10 @@ impl WinConsole {
                     let required = process_count - buffer.len() as u32;
                     buffer.repeat(required as usize);
                     process_count = GetConsoleProcessList(buffer.as_mut_ptr(), buffer.len() as u32);
+
+                    if process_count == 0{
+                        return Err(Error::last_os_error());
+                    }
                 }
 
                 buffer.shrink_to_fit();
@@ -1383,6 +1388,33 @@ impl WinConsole {
     pub fn get_cursor_position(&self) -> Result<Coord> {
         self.get_screen_buffer_info()
             .map(|value| value.cursor_position)
+    }
+
+    /// Retrieves information about the size and visibility of the cursor for the specified console screen buffer.
+    ///
+    /// Wraps a call to [GetConsoleCursorInfo](https://docs.microsoft.com/en-us/windows/console/getconsolecursorinfo).
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let cursor_info = WinConsole::output().get_cursor_info();
+    /// ```
+    pub fn get_cursor_info(&self) -> Result<ConsoleCursorInfo>{
+        let handle = self.get_handle();
+        unsafe{
+            let mut info : CONSOLE_CURSOR_INFO = std::mem::zeroed();
+
+            if GetConsoleCursorInfo(**handle, &mut info) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(ConsoleCursorInfo::from(info))
+            }
+        }
     }
 
     /// Clears the content of the console screen buffer and set the cursor to (0, 0)

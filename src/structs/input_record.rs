@@ -42,7 +42,7 @@ impl From<INPUT_RECORD> for InputRecord {
             ),
             FOCUS_EVENT => InputRecord::FocusEvent(unsafe { *record.Event.FocusEvent() }.into()),
             MENU_EVENT => InputRecord::MenuEvent(unsafe { *record.Event.MenuEvent() }.into()),
-            code => unreachable!("Invalid input record type"),
+            code => unreachable!("Invalid input record type: {}", code),
         }
     }
 }
