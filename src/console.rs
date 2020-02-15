@@ -413,7 +413,8 @@ impl WinConsole {
     /// ```
     #[inline]
     pub fn input() -> WinConsole {
-        WinConsole(WinConsole::get_std_handle(HandleType::Input).unwrap())
+        WinConsole(WinConsole::get_std_handle(HandleType::Input)
+            .expect("Cannot get the std input handle."))
     }
 
     /// Gets a console with the `STD_OUTPUT_HANDLE`.
@@ -425,7 +426,8 @@ impl WinConsole {
     /// ```
     #[inline]
     pub fn output() -> WinConsole {
-        WinConsole(WinConsole::get_std_handle(HandleType::Output).unwrap())
+        WinConsole(WinConsole::get_std_handle(HandleType::Output)
+            .expect("Cannot get the std output handle."))
     }
 
     /// Gets a console with the `STD_ERROR_HANDLE`.
@@ -437,7 +439,8 @@ impl WinConsole {
     /// ```
     #[inline]
     pub fn error() -> WinConsole {
-        WinConsole(WinConsole::get_std_handle(HandleType::Error).unwrap())
+        WinConsole(WinConsole::get_std_handle(HandleType::Error)
+            .expect("Cannot get the std error handle."))
     }
 
     /// Gets a console with current input handle.
@@ -450,7 +453,8 @@ impl WinConsole {
     /// ```
     #[inline]
     pub fn current_input() -> WinConsole {
-        WinConsole(WinConsole::get_current_input_handle().unwrap())
+        WinConsole(WinConsole::get_current_input_handle()
+            .expect("Cannot get the current input handle."))
     }
 
     /// Gets a console with the current output handle.
@@ -463,7 +467,8 @@ impl WinConsole {
     /// ```
     #[inline]
     pub fn current_output() -> WinConsole {
-        WinConsole(WinConsole::get_current_output_handle().unwrap())
+        WinConsole(WinConsole::get_current_output_handle()
+            .expect("Cannot get the current output handle."))
     }
 
     /// Gets a console with the given handle.
