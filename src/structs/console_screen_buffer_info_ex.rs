@@ -2,10 +2,10 @@ use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFOEX;
 use crate::structs::small_rect::SmallRect;
 
-/// Represents a [CONSOLE_SCREEN_BUFFER_INFOEX] which contains extended information about
+/// Represents a `CONSOLE_SCREEN_BUFFER_INFOEX` which contains extended information about
 /// the console screen buffer.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-infoex]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-infoex`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ConsoleScreenBufferInfoEx {
     /// Size this struct in bytes.
@@ -32,7 +32,7 @@ pub struct ConsoleScreenBufferInfoEx {
     pub full_screen_supported: bool,
     /// An array of `COLORREF` values that describe the console's color settings.
     ///
-    /// link: [https://docs.microsoft.com/en-us/windows/win32/gdi/colorref?redirectedfrom=MSDN]
+    /// link: `https://docs.microsoft.com/en-us/windows/win32/gdi/colorref`
     pub color_table: [u32; 16],
 }
 

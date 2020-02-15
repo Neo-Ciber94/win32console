@@ -88,6 +88,8 @@ use crate::{
     structs::console_selection_info::ConsoleSelectionInfo,
     structs::small_rect::SmallRect
 };
+use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo};
+use crate::structs::console_history_info::ConsoleHistoryInfo;
 
 /// Provides an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -103,7 +105,7 @@ use crate::{
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WinConsole(Handle);
 
-/// Type of a console handle, you can use this enum to get a handle by calling: [`WinConsole::get_std_handle(...)`].
+/// Type of a console handle, you can use this enum to get a handle by calling: [`get_std_handle`].
 ///
 /// # Example
 /// ```
@@ -112,30 +114,32 @@ pub struct WinConsole(Handle);
 /// let handle = WinConsole::get_std_handle(HandleType::Input).unwrap();
 /// assert!(handle.is_valid());
 /// ```
+///
+/// [`get_std_handle`]: struct.WinConsole.html#method.get_std_handle
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum HandleType {
-    /// Represents the [`STD_INPUT_HANDLE`].
+    /// Represents the `STD_INPUT_HANDLE`.
     Input = STD_INPUT_HANDLE,
-    /// Represents the [`STD_OUTPUT_HANDLE`].
+    /// Represents the `STD_OUTPUT_HANDLE`.
     Output = STD_OUTPUT_HANDLE,
-    /// Represents the [`STD_ERROR_HANDLE`].
+    /// Represents the `STD_ERROR_HANDLE`.
     Error = STD_ERROR_HANDLE
 }
 
 /// Wraps constants values of the console modes.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/getconsolemode]
+/// link: `https://docs.microsoft.com/en-us/windows/console/getconsolemode`
 pub struct ConsoleMode;
 
 /// Wraps constants values of the console text attributes.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffers]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-screen-buffers`
 pub struct ConsoleTextAttribute;
 
 /// Wraps basics options to create a console.
 ///
-/// See: [`https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer`].
+/// See: `https://docs.microsoft.com/en-us/windows/console/createconsolescreenbuffer`
 ///
 /// # Example
 /// ```
@@ -158,16 +162,16 @@ pub struct ConsoleOptions{
 
 impl ConsoleMode {
     /// CTRL+C is processed by the system and is not placed in the input buffer.
-    /// If the input buffer is being read by [ReadFile] or [ReadConsole],
-    /// other control keys are processed by the system and are not returned in the [ReadFile] or [ReadConsole] buffer
+    /// If the input buffer is being read by `ReadFile` or `ReadConsole`,
+    /// other control keys are processed by the system and are not returned in the `ReadFile` or `ReadConsole` buffer
     pub const ENABLE_PROCESSED_INPUT: u32 = 0x0001;
 
     /// The ReadFile or ReadConsole function returns only when a carriage return character is read.
     /// If this mode is disabled, the functions return when one or more characters are available.
     pub const ENABLE_LINE_INPUT: u32 = 0x0002;
 
-    /// Characters read by the [ReadFile] or [ReadConsole] function are written to the active screen buffer as they are read.
-    /// This mode can be used only if the [ENABLE_LINE_INPUT] mode is also enabled.
+    /// Characters read by the `ReadFile` or `ReadConsole` function are written to the active screen buffer as they are read.
+    /// This mode can be used only if the `ENABLE_LINE_INPUT` mode is also enabled.
     pub const ENABLE_ECHO_INPUT: u32 = 0x0004;
 
     /// User interactions that change the size of the console screen buffer are reported in the console's input buffer.
@@ -185,13 +189,13 @@ impl ConsoleMode {
     /// This flag enables the user to use the mouse to select and edit text.
     pub const ENABLE_QUICK_EDIT_MODE: u32 = 0x0040;
 
-    /// Required to enable or disable extended flags. See [ENABLE_INSERT_MODE] and [ENABLE_QUICK_EDIT_MODE].
-    /// link: [https://docs.microsoft.com/en-us/windows/console/setconsolemode#parameters]
+    /// Required to enable or disable extended flags. See `ENABLE_INSERT_MODE` and `ENABLE_QUICK_EDIT_MODE`.
+    /// link: `https://docs.microsoft.com/en-us/windows/console/setconsolemode#parameters`
     pub const ENABLE_EXTENDED_FLAGS: u32 = 0x0080;
 
     /// Setting this flag directs the Virtual Terminal processing engine to convert user input received by the console window
     /// into Console Virtual Terminal Sequences that can be retrieved by a supporting application
-    /// through [ReadFile] or [ReadConsole] functions.
+    /// through `ReadFile` or `ReadConsole` functions.
     pub const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
 }
 
@@ -229,7 +233,7 @@ impl ConsoleTextAttribute {
 }
 
 impl ConsoleOptions{
-    /// Create a new [`ConsoleOptions`].
+    /// Create a new `ConsoleOptions`.
     #[inline]
     pub fn new() -> Self{
         ConsoleOptions{ desired_access: 0, share_mode: 0 }
@@ -247,25 +251,25 @@ impl ConsoleOptions{
         self.share_mode
     }
 
-    /// Set the console as [`GENERIC_READ`].
+    /// Set the console as `GENERIC_READ`.
     pub fn generic_read(mut self) -> ConsoleOptions{
         self.desired_access |= GENERIC_READ;
         self
     }
 
-    /// Set the console as [`GENERIC_WRITE`].
+    /// Set the console as `GENERIC_WRITE`.
     pub fn generic_write(mut self) -> ConsoleOptions{
         self.desired_access |= GENERIC_WRITE;
         self
     }
 
-    /// Set the console as [`FILE_SHARE_READ`].
+    /// Set the console as `FILE_SHARE_READ`.
     pub fn shared_read(mut self) -> ConsoleOptions{
         self.share_mode |= FILE_SHARE_READ;
         self
     }
 
-    /// Set the console as [`FILE_SHARE_WRITE`].
+    /// Set the console as `FILE_SHARE_WRITE`.
     pub fn shared_write(mut self) -> ConsoleOptions{
         self.share_mode |= FILE_SHARE_WRITE;
         self
@@ -316,9 +320,9 @@ impl WinConsole {
         }
     }
 
-    /// Creates a Handle to the standard input file [`CONIN$`], if the input
+    /// Creates a Handle to the standard input file `CONIN$`, if the input
     /// is being redirected the value returned by [`get_std_handle`] cannot be used
-    /// in functions that requires the console handle, but the returned [`Handle`]
+    /// in functions that requires the console handle, but the returned `Handle`
     /// of this method can be used even if the input is being redirected.
     ///
     /// More info about console handles: `https://docs.microsoft.com/en-us/windows/console/console-handles`
@@ -330,6 +334,8 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// let handle = WinConsole::get_current_input_handle().unwrap();
     /// ```
+    ///
+    /// [`get_std_handle`]: #method.get_std_handle
     pub fn get_current_input_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONIN$\0".encode_utf16().collect();
@@ -355,12 +361,12 @@ impl WinConsole {
         Ok(Handle::new_owned(raw_handle))
     }
 
-    /// Creates a Handle to the standard output file [`CONOUT$`], if the input
+    /// Creates a Handle to the standard output file `CONOUT$`, if the input
     /// is being redirected the value returned by [`get_std_handle`] cannot be used
-    /// in functions that requires the console handle, but the returned [`Handle`]
+    /// in functions that requires the console handle, but the returned `Handle`
     /// of this method can be used even if the output is being redirected.
     ///
-    /// More info about console handles: [`https://docs.microsoft.com/en-us/windows/console/console-handles`]
+    /// More info about console handles: `https://docs.microsoft.com/en-us/windows/console/console-handles`
     ///
     /// Wraps a call to [CreateFileW](https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
     ///
@@ -369,6 +375,7 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// let handle = WinConsole::get_current_output_handle().unwrap();
     /// ```
+    /// [`get_std_handle`]: #method.get_std_handle
     pub fn get_current_output_handle() -> Result<Handle> {
         // Rust strings are no null terminated
         let file_name: Vec<u16> = "CONOUT$\0".encode_utf16().collect();
@@ -397,26 +404,40 @@ impl WinConsole {
 
 // Factory methods
 impl WinConsole {
-    /// Gets a console with the [`STD_INPUT_HANDLE`].
+    /// Gets a console with the `STD_INPUT_HANDLE`.
     ///
     /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::input();
     /// ```
-    pub fn input() -> Self {
+    #[inline]
+    pub fn input() -> WinConsole {
         WinConsole(WinConsole::get_std_handle(HandleType::Input).unwrap())
     }
 
-    /// Gets a console with the [`STD_OUTPUT_HANDLE`].
+    /// Gets a console with the `STD_OUTPUT_HANDLE`.
     ///
     /// # Example
     /// ```
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::output();
     /// ```
-    pub fn output() -> Self {
+    #[inline]
+    pub fn output() -> WinConsole {
         WinConsole(WinConsole::get_std_handle(HandleType::Output).unwrap())
+    }
+
+    /// Gets a console with the `STD_ERROR_HANDLE`.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let console = WinConsole::error();
+    /// ```
+    #[inline]
+    pub fn error() -> WinConsole {
+        WinConsole(WinConsole::get_std_handle(HandleType::Error).unwrap())
     }
 
     /// Gets a console with current input handle.
@@ -427,7 +448,8 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::current_input();
     /// ```
-    pub fn current_input() -> Self {
+    #[inline]
+    pub fn current_input() -> WinConsole {
         WinConsole(WinConsole::get_current_input_handle().unwrap())
     }
 
@@ -439,11 +461,21 @@ impl WinConsole {
     /// use win32console::console::WinConsole;
     /// let console = WinConsole::current_output();
     /// ```
-    pub fn current_output() -> Self {
+    #[inline]
+    pub fn current_output() -> WinConsole {
         WinConsole(WinConsole::get_current_output_handle().unwrap())
     }
 
-    pub fn with_handle(handle: Handle) -> Self{
+    /// Gets a console with the given handle.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, HandleType};
+    /// let handle = WinConsole::get_std_handle(HandleType::Input).unwrap();
+    /// let console = WinConsole::with_handle(handle);
+    /// ```
+    #[inline]
+    pub fn with_handle(handle: Handle) -> WinConsole{
         WinConsole(handle)
     }
 }
@@ -794,6 +826,96 @@ impl WinConsole {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
+            }
+        }
+    }
+
+    /// Retrieves a list of the processes attached to the current console.
+    ///
+    /// Wraps a call to [GetConsoleProcessList](https://docs.microsoft.com/en-us/windows/console/getconsoleprocesslist).
+    ///
+    /// # Errors
+    /// - No documented errors.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let process_id = WinConsole::get_process_list().unwrap();
+    /// for pid in &process_id{
+    ///     WinConsole::output().write_utf8(format!("{}", pid).as_bytes()).unwrap();
+    /// }
+    /// ```
+    pub fn get_process_list() -> Result<Vec<u32>>{
+        const BUFFER_SIZE : usize = 4;
+
+        unsafe {
+            let mut buffer = vec![u32::default(); BUFFER_SIZE];
+            let mut process_count = GetConsoleProcessList(buffer.as_mut_ptr(), buffer.len() as u32);
+
+            if process_count == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                if process_count > buffer.len() as u32 {
+                    let required = process_count - buffer.len() as u32;
+                    buffer.repeat(required as usize);
+                    process_count = GetConsoleProcessList(buffer.as_mut_ptr(), buffer.len() as u32);
+                }
+
+                buffer.shrink_to_fit();
+                Ok(buffer)
+            }
+        }
+    }
+
+    /// Sets the history settings for the calling process's console.
+    ///
+    /// Wraps a call to [SetConsoleHistoryInfo](https://docs.microsoft.com/en-us/windows/console/setconsolehistoryinfo).
+    ///
+    /// # Errors
+    /// - If the calling process is not a console process, the function fails and sets the last error code to `ERROR_ACCESS_DENIED`.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let mut  info = WinConsole::get_history_info().unwrap();
+    /// info.allow_duplicate_entries = false;
+    /// WinConsole::set_history_info(info).unwrap();
+    /// ```
+    pub fn set_history_info(info: ConsoleHistoryInfo) -> Result<()>{
+        unsafe{
+            if SetConsoleHistoryInfo(&mut (info.into())) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
+    }
+
+    /// Retrieves the history settings for the calling process's console.
+    ///
+    /// Wraps a call to [GetConsoleHistoryInfo](https://docs.microsoft.com/en-us/windows/console/getconsolehistoryinfo).
+    ///
+    /// # Errors
+    /// - No documented errors.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let mut  info = WinConsole::get_history_info().unwrap();
+    /// info.allow_duplicate_entries = false;
+    /// WinConsole::set_history_info(info).unwrap();
+    /// ```
+    pub fn get_history_info() -> Result<ConsoleHistoryInfo>{
+        let mut info : CONSOLE_HISTORY_INFO = unsafe { std::mem::zeroed() };
+
+        unsafe{
+            if GetConsoleHistoryInfo(&mut info) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(info.into())
             }
         }
     }

@@ -1,9 +1,9 @@
 use winapi::um::wincon::{ CHAR_INFO };
 use std::convert::TryFrom;
 
-/// Represents a [CHAR_INFO] which is used by console functions to read from and write to a console screen buffer.
+/// Represents a `CHAR_INFO` which is used by console functions to read from and write to a console screen buffer.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/char-info-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/char-info-str`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct CharInfo{
     /// The char value

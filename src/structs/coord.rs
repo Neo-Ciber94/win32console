@@ -2,10 +2,10 @@ use winapi::um::wincon::COORD;
 use std::fmt::Display;
 use winapi::_core::fmt::{Formatter, Error};
 
-/// Represents a [COORD] which is the position of the characters cell in the console screen buffer,
+/// Represents a `COORD` which is the position of the characters cell in the console screen buffer,
 /// which origin is (0,0).
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/coord-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/coord-str`
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Hash)]
 pub struct Coord {
     /// x axis position

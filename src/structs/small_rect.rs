@@ -3,9 +3,9 @@ use std::ops::Div;
 use std::ops::Mul;
 use winapi::um::wincon::SMALL_RECT;
 
-/// Represents a [https://docs.microsoft.com/en-us/windows/console/small-rect-str].
+/// Represents a `SMALL_RECT` which defines the coordinates of the upper left and lower right corners of a rectangle.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/small-rect-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/small-rect-str`
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Hash)]
 pub struct SmallRect {
     pub left: i16,

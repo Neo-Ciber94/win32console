@@ -2,9 +2,9 @@ use crate::structs::coord::Coord;
 use winapi::um::wincon::{CONSOLE_SELECTION_INFO};
 use crate::structs::small_rect::SmallRect;
 
-/// Represents a [CONSOLE_SELECTION_INFO] which contains information for a console selection.
+/// Represents a `CONSOLE_SELECTION_INFO` which contains information for a console selection.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-selection-info-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-selection-info-str`
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct ConsoleSelectionInfo {
     // The selection indicator

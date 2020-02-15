@@ -1,9 +1,9 @@
 use winapi::um::wincon::MENU_EVENT_RECORD;
 
-/// Represents a [MENU_EVENT_RECORD] which describes a menu event in a console [INPUT_RECORD] structure.
+/// Represents a `MENU_EVENT_RECORD` which describes a menu event in a console `INPUT_RECORD` structure.
 /// These events are used internally and should be ignored.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/menu-event-record-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/menu-event-record-str`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct MenuEventRecord {
     /// Reserved.

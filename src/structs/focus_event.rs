@@ -1,9 +1,9 @@
 use winapi::um::wincon::FOCUS_EVENT_RECORD;
 
-/// Represents a [FOCUS_EVENT_RECORD] which Describes a focus event in a console [INPUT_RECORD] structure.
+/// Represents a `FOCUS_EVENT_RECORD` which Describes a focus event in a console `INPUT_RECORD` structure.
 /// These events are used internally and should be ignored.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/focus-event-record-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/focus-event-record-str`
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct FocusEventRecord {
     /// Reserved.

@@ -1,9 +1,9 @@
 use crate::structs::input_event::ControlKeyState;
 use winapi::um::wincon::CONSOLE_READCONSOLE_CONTROL;
 
-/// Represents a [CONSOLE_READCONSOLE_CONTROL] which contains information for a console read operation.
+/// Represents a `CONSOLE_READCONSOLE_CONTROL` which contains information for a console read operation.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-readconsole-control]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-readconsole-control`
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct ConsoleReadControl{
     // Size of this struct in bytes.

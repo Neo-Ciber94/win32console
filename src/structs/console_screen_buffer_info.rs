@@ -2,10 +2,10 @@ use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_SCREEN_BUFFER_INFO;
 use crate::structs::small_rect::SmallRect;
 
-/// Represents a [CONSOLE_SCREEN_BUFFER_INFO], which contains information about the
+/// Represents a `CONSOLE_SCREEN_BUFFER_INFO`, which contains information about the
 /// console screen buffer.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-info-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-info-str`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ConsoleScreenBufferInfo {
     /// Size of the screen buffer in rows and columns.

@@ -5,10 +5,10 @@ use winapi::um::wincon::{
 };
 use std::convert::TryFrom;
 
-/// Represents a [KEY_EVENT_RECORD] which describes a keyboard input event
-/// in a console [INPUT_RECORD] structure.
+/// Represents a `KEY_EVENT_RECORD` which describes a keyboard input event
+/// in a console `INPUT_RECORD` structure.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/key-event-record-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/key-event-record-str`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct KeyEventRecord {
     /// If the key is pressed, this member is TRUE. Otherwise, this member is
@@ -31,10 +31,10 @@ pub struct KeyEventRecord {
     pub control_key_state: ControlKeyState,
 }
 
-/// Represents a [MOUSE_EVENT_RECORD] which describes a mouse input event
-/// in a console [INPUT_RECORD] structure.
+/// Represents a `MOUSE_EVENT_RECORD` which describes a mouse input event
+/// in a console `INPUT_RECORD` structure.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct MouseEventRecord {
     /// Contains the location of the cursor, in terms of the console screen buffer's character-cell coordinates.
@@ -54,19 +54,19 @@ pub struct MouseEventRecord {
 
 /// Represents the state of the mouse buttons.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members]
+/// link: `https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ButtonState(i32);
 
 /// Represents the state of the control keys.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members]
+/// link: `https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ControlKeyState(u32);
 
 /// Represents the type of mouse event.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members]
+/// link: `https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EventFlags {
     /// The button is being pressed or released.

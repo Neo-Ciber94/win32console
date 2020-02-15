@@ -1,7 +1,9 @@
 use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_FONT_INFO;
 
-/// Represents a [CONSOLE_FONT_INFO] which contains information for a console font.
+/// Represents a `CONSOLE_FONT_INFO` which contains information for a console font.
+///
+/// link `https://docs.microsoft.com/en-us/windows/console/console-font-info-str`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ConsoleFontInfo{
     /// The index of the font in the system's console font table.

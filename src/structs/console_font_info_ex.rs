@@ -2,9 +2,9 @@ use crate::structs::coord::Coord;
 use winapi::um::wincon::CONSOLE_FONT_INFOEX;
 use winapi::um::wingdi::LF_FACESIZE;
 
-/// Represents a [CONSOLE_FONT_INFOEX] which contains extended information about the console font.
+/// Represents a `CONSOLE_FONT_INFOEX` which contains extended information about the console font.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/console-font-infoex]
+/// link: `https://docs.microsoft.com/en-us/windows/console/console-font-infoex`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ConsoleFontInfoEx {
     /// Size this struct in bytes.

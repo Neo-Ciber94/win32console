@@ -7,9 +7,9 @@ use winapi::um::wincontypes::{
     FOCUS_EVENT, KEY_EVENT, MENU_EVENT, MOUSE_EVENT, WINDOW_BUFFER_SIZE_EVENT,
 };
 
-/// Represents an [INPUT_RECORD] which describes an input event in the console input buffer.
+/// Represents an `INPUT_RECORD` which describes an input event in the console input buffer.
 ///
-/// link: [https://docs.microsoft.com/en-us/windows/console/input-record-str]
+/// link: `https://docs.microsoft.com/en-us/windows/console/input-record-str`
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InputRecord {
     /// The Event member contains a `KEY_EVENT_RECORD` structure with
@@ -42,7 +42,7 @@ impl From<INPUT_RECORD> for InputRecord {
             ),
             FOCUS_EVENT => InputRecord::FocusEvent(unsafe { *record.Event.FocusEvent() }.into()),
             MENU_EVENT => InputRecord::MenuEvent(unsafe { *record.Event.MenuEvent() }.into()),
-            code => panic!("Unexpected INPUT_RECORD EventType: {}", code),
+            code => unreachable!("Invalid input record type"),
         }
     }
 }
