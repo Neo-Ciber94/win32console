@@ -1,6 +1,6 @@
 [package]
 name = "win32console"
-version = "0.1.2"
+version = "0.1.2-pre1"
 repository = "https://github.com/Neo-Ciber94/win32console"
 description = "Provides a wrapper to interact with the windows console from rust"
 keywords = ["console", "windows", "wincon", "winapi", "crossterm-winapi"]
