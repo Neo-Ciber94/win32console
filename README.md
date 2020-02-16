@@ -123,13 +123,16 @@ List of the native methods of `Wincon` implemented in this library:
    WriteConsoleOutputAttribute      | write_output_attribute        | Copies a number of foreground and background color attributes to consecutive cells of a console screen buffer.              
    WriteConsoleOutputCharacter      | write_output_character        | Copies a number of characters to consecutive cells of a console screen buffer.                                              
 
-Also provides some abstraction as:
+Also provides functions as:
 ```c++
 // Clears the screen
 WinConsole::output().clear();
 
 // Reads a 'String' from the console
 WinConsole::input().read_string();
+
+// Makes and tone sound
+WinConsole::beep(u32, u32);
 
 // Sets the foreground color
 WinConsole::output().set_foreground_color(ConsoleColor);

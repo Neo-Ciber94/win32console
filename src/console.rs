@@ -3053,7 +3053,8 @@ impl WinConsole{
     /// # Example
     /// ```
     /// use win32console::console::WinConsole;
-    /// 
+    ///
+    /// // https://pages.mtu.edu/~suits/notefreqs.html
     /// let musical_notes = [
     ///    (2093, 500), (2349, 500), (2637, 500), (2793, 500),
     ///    (3135, 500), (3520, 500), (3951, 500), (4186, 500)
