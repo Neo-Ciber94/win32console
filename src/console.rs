@@ -5,7 +5,8 @@ use std::{
     mem::{MaybeUninit},
     slice,
     str,
-    ptr::null_mut
+    ptr::null_mut,
+    time::Duration
 };
 
 use winapi::{
@@ -72,6 +73,12 @@ use winapi::{
     },
     ctypes::c_void,
     shared::minwindef::MAX_PATH,
+    um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO, GetConsoleDisplayMode, CONSOLE_FULLSCREEN_MODE, CONSOLE_WINDOWED_MODE, SetConsoleDisplayMode, COORD, CONSOLE_FULLSCREEN, CONSOLE_FULLSCREEN_HARDWARE, GetConsoleWindow, GetConsoleFontSize, ReadConsoleOutputCharacterW, ReadConsoleOutputAttribute, WriteConsoleInputA, WriteConsoleOutputAttribute, WriteConsoleOutputCharacterW},
+    um::winnt::{HANDLE},
+    shared::windef::RECT,
+    um::winuser::{MONITORINFO, GetMonitorInfoA, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY, GetWindowRect},
+    shared::windef::HWND__,
+    um::utilapiset::Beep
 };
 
 use crate::{
@@ -86,15 +93,10 @@ use crate::{
     structs::handle::Handle,
     structs::input_record::InputRecord,
     structs::console_selection_info::ConsoleSelectionInfo,
-    structs::small_rect::SmallRect
+    structs::small_rect::SmallRect,
+    structs::console_history_info::ConsoleHistoryInfo,
+    structs::console_cursor_info::ConsoleCursorInfo
 };
-use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO, GetConsoleDisplayMode, CONSOLE_FULLSCREEN_MODE, CONSOLE_WINDOWED_MODE, SetConsoleDisplayMode, COORD, CONSOLE_FULLSCREEN, CONSOLE_FULLSCREEN_HARDWARE, GetConsoleWindow, GetConsoleFontSize, ReadConsoleOutputCharacterW, ReadConsoleOutputAttribute, WriteConsoleInputA, WriteConsoleOutputAttribute, WriteConsoleOutputCharacterW};
-use crate::structs::console_history_info::ConsoleHistoryInfo;
-use crate::structs::console_cursor_info::ConsoleCursorInfo;
-use winapi::um::winnt::{HANDLE};
-use winapi::shared::windef::RECT;
-use winapi::um::winuser::{MONITORINFO, GetMonitorInfoA, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY, GetWindowRect};
-use winapi::shared::windef::HWND__;
 
 /// Provides an access to the windows console of the current process and provides methods for
 /// interact with it.
@@ -3037,5 +3039,38 @@ impl WinConsole {
         let new_attributes = (old_attributes & !(old_attributes & WinConsole::BG_COLOR_MASK))
             | color.as_background_color();
         self.set_text_attribute(new_attributes)
+    }
+}
+
+// No console methods
+impl WinConsole{
+    /// Generates simple tones on the speaker.
+    /// The function is synchronous;
+    /// it performs an alertable wait and does not return control to its caller until the sound finishes.
+    ///
+    /// Wraps a call to [Beep](https://docs.microsoft.com/en-us/windows/win32/api/utilapiset/nf-utilapiset-beep).
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// 
+    /// let musical_notes = [
+    ///    (2093, 500), (2349, 500), (2637, 500), (2793, 500),
+    ///    (3135, 500), (3520, 500), (3951, 500), (4186, 500)
+    /// ];
+    ///
+    /// for n in &musical_notes{
+    ///    WinConsole::beep(n.0, n.1).unwrap();
+    /// }
+    /// ```
+    pub fn beep(frequency : u32, duration: u32) -> Result<()>{
+        unsafe{
+            if Beep(frequency, duration) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(())
+            }
+        }
     }
 }
