@@ -124,7 +124,7 @@ List of the native methods of `Wincon` implemented in this library:
    WriteConsoleOutputCharacter      | write_output_character        | Copies a number of characters to consecutive cells of a console screen buffer.                                              
 
 Also provides some abstraction as:
-```rs
+```rust
 // Clears the screen
 WinConsole::output().clear();
 
