@@ -1575,6 +1575,7 @@ impl WinConsole {
     ///        }
     ///    }
     /// ```
+    #[inline]
     pub fn get_cursor_position(&self) -> Result<Coord> {
         self.get_screen_buffer_info()
             .map(|value| value.cursor_position)
@@ -1627,7 +1628,6 @@ impl WinConsole {
         self.fill_with_char(Coord::default(), length, ' ')?;
 
         // Fills with the current attribute.
-        // TODO: Use 0 as attribute?
         self.fill_with_attribute(Coord::default(), length, info.attributes)?;
 
         // Set the cursor position to (0, 0)
@@ -1772,6 +1772,7 @@ impl WinConsole {
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     /// WinConsole::output().set_text_attribute(old_attributes);
     /// ```
+    #[inline]
     pub fn get_text_attribute(&self) -> Result<u16> {
         Ok(self.get_screen_buffer_info()?.attributes)
     }
@@ -2943,7 +2944,7 @@ impl WinConsole {
     /// WinConsole::output().set_foreground_color(old_fgcolor);
     /// WinConsole::output().set_background_color(old_bgcolor);
     /// ```
-    pub fn get_foreground_color(&self) -> std::io::Result<ConsoleColor> {
+    pub fn get_foreground_color(&self) -> Result<ConsoleColor> {
         let attributes = self.get_text_attribute()?;
         Ok(
             ConsoleColor::try_from(attributes & WinConsole::FG_COLOR_MARK)
@@ -2973,7 +2974,7 @@ impl WinConsole {
     /// WinConsole::output().set_foreground_color(old_fgcolor);
     /// WinConsole::output().set_background_color(old_bgcolor);
     /// ```
-    pub fn get_background_color(&self) -> std::io::Result<ConsoleColor> {
+    pub fn get_background_color(&self) -> Result<ConsoleColor> {
         let attributes = self.get_text_attribute()? << 4;
         Ok(
             ConsoleColor::try_from(attributes & WinConsole::BG_COLOR_MASK)
@@ -3003,7 +3004,7 @@ impl WinConsole {
     /// WinConsole::output().set_foreground_color(old_fgcolor);
     /// WinConsole::output().set_background_color(old_bgcolor);
     /// ```
-    pub fn set_foreground_color(&self, color: ConsoleColor) -> std::io::Result<()> {
+    pub fn set_foreground_color(&self, color: ConsoleColor) -> Result<()> {
         let old_attributes = self.get_text_attribute()?;
         let new_attributes = (old_attributes & !(old_attributes & WinConsole::FG_COLOR_MARK))
             | color.as_foreground_color();
@@ -3031,7 +3032,7 @@ impl WinConsole {
     /// WinConsole::output().set_foreground_color(old_fgcolor);
     /// WinConsole::output().set_background_color(old_bgcolor);
     /// ```
-    pub fn set_background_color(&self, color: ConsoleColor) -> std::io::Result<()> {
+    pub fn set_background_color(&self, color: ConsoleColor) -> Result<()> {
         let old_attributes = self.get_text_attribute()?;
         let new_attributes = (old_attributes & !(old_attributes & WinConsole::BG_COLOR_MASK))
             | color.as_background_color();
