@@ -10,7 +10,6 @@ pub mod small_rect;
 pub mod coord;
 pub mod focus_event;
 pub mod handle;
-pub mod input;
 pub mod input_event;
 pub mod input_record;
 pub mod menu_event;
