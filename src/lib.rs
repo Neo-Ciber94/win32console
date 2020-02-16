@@ -5,6 +5,15 @@
 //! `https://docs.microsoft.com/en-us/windows/console/console-functions`
 //!
 //! # Example
+//! Here a quick example of how [`WinConsole`] can be use, as you can see we don't cache the
+//! `WinConsole`, we use `WinConsole::output` or `WinConsole::input` to ensure a call to
+//! [`get_std_handle`] and get a fresh handle each time due we can't know when [`set_std_handle`]
+//! could be call.
+//!
+//! [`WinConsole`]: console/struct.WinConsole.html
+//! [`get_std_handle`]: console/struct.WinConsole.html#method.get_std_handle
+//! [`set_std_handle`]: console/struct.WinConsole.html#method.set_std_handle
+//!
 //! ```rust
 //! use win32console::console::WinConsole;
 //! use win32console::input::*;
