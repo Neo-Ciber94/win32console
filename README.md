@@ -1,6 +1,6 @@
 # Win32Console
-![https://crates.io/crates/win32console](https://img.shields.io/badge/crates.io-v1.3-orange)
-![https://docs.rs/win32console/0.1.3/win32console/](https://img.shields.io/badge/docs-v1.3-yellow)
+[![Crates.io](https://img.shields.io/badge/crates.io-v1.3-orange)](https://crates.io/crates/win32console)
+[![Docs](https://img.shields.io/badge/docs-v1.3-yellow)](https://docs.rs/win32console/0.1.3/win32console/)
 
 Expose functions to interact with the windows console from **Rust**.
 
