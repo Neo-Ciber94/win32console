@@ -1,8 +1,9 @@
 [package]
 name = "win32console"
-version = "0.1.3-a2"
+version = "0.1.3-a3"
 repository = "https://github.com/Neo-Ciber94/win32console"
 description = "Provides a wrapper to interact with the windows console from rust"
+documentation = "https://docs.rs/win32console/0.1.3/win32console/"
 keywords = ["console", "windows", "wincon", "winapi", "crossterm-winapi"]
 categories = ["command-line-interface", "command-line-utilities", "os", "os::windows-apis"]
 readme = "README.md"
@@ -15,11 +16,4 @@ edition = "2018"
 winapi = {version="0.3.8", features=["winnt", "handleapi", "processenv", "winbase", "fileapi", "wincon", "minwindef", "wingdi", "wincontypes", "consoleapi", "windef", "winuser", "utilapiset"]}
 
 [package.metadata.docs.rs]
-# - x86_64-unknown-linux-gnu
-# - x86_64-apple-darwin
-# - x86_64-pc-windows-msvc
-# - i686-unknown-linux-gnu
-# - i686-apple-darwin
-# - i686-pc-windows-msvc
-
 default-target = "x86_64-pc-windows-msvc"
