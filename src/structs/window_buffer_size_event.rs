@@ -10,11 +10,33 @@ pub struct WindowBufferSizeRecord {
     pub size: Coord,
 }
 
+impl Into<WINDOW_BUFFER_SIZE_RECORD> for WindowBufferSizeRecord{
+    fn into(self) -> WINDOW_BUFFER_SIZE_RECORD {
+        WINDOW_BUFFER_SIZE_RECORD{
+            dwSize: self.size.into()
+        }
+    }
+}
+
 impl From<WINDOW_BUFFER_SIZE_RECORD> for WindowBufferSizeRecord {
     #[inline]
     fn from(record: WINDOW_BUFFER_SIZE_RECORD) -> Self {
         WindowBufferSizeRecord {
             size: record.dwSize.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn window_buffer_size_into_test(){
+        let mut window_event : WindowBufferSizeRecord= unsafe { std::mem::zeroed() };
+        window_event.size = Coord::new(3, 4);
+        let raw_window_event : WINDOW_BUFFER_SIZE_RECORD = window_event.into();
+
+        assert_eq!(window_event.size, Coord::from(raw_window_event.dwSize));
     }
 }

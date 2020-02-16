@@ -1,8 +1,5 @@
 use crate::structs::coord::Coord;
-use winapi::um::wincon::{
-    FROM_LEFT_1ST_BUTTON_PRESSED, FROM_LEFT_2ND_BUTTON_PRESSED, FROM_LEFT_3RD_BUTTON_PRESSED,
-    FROM_LEFT_4TH_BUTTON_PRESSED, KEY_EVENT_RECORD, MOUSE_EVENT_RECORD, RIGHTMOST_BUTTON_PRESSED,
-};
+use winapi::um::wincon::{FROM_LEFT_1ST_BUTTON_PRESSED, FROM_LEFT_2ND_BUTTON_PRESSED, FROM_LEFT_3RD_BUTTON_PRESSED, FROM_LEFT_4TH_BUTTON_PRESSED, KEY_EVENT_RECORD, MOUSE_EVENT_RECORD, RIGHTMOST_BUTTON_PRESSED};
 use std::convert::TryFrom;
 
 /// Represents a `KEY_EVENT_RECORD` which describes a keyboard input event
@@ -67,6 +64,7 @@ pub struct ControlKeyState(u32);
 /// Represents the type of mouse event.
 ///
 /// link: `https://docs.microsoft.com/en-us/windows/console/mouse-event-record-str#members`
+#[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EventFlags {
     /// The button is being pressed or released.
@@ -232,9 +230,37 @@ impl ButtonState {
     }
 }
 
-impl From<&KEY_EVENT_RECORD> for KeyEventRecord {
+impl Into<KEY_EVENT_RECORD> for KeyEventRecord{
+    fn into(self) -> KEY_EVENT_RECORD {
+        KEY_EVENT_RECORD{
+            bKeyDown: self.key_down.into(),
+            wRepeatCount: self.repeat_count,
+            wVirtualKeyCode: self.virtual_key_code,
+            wVirtualScanCode: self.virtual_scan_code,
+            uChar: unsafe {
+                let mut buf = [0u16];
+                self.u_char.encode_utf16(&mut buf);
+                std::mem::transmute(buf)
+            },
+            dwControlKeyState: self.control_key_state.get_state()
+        }
+    }
+}
+
+impl Into<MOUSE_EVENT_RECORD> for MouseEventRecord{
+    fn into(self) -> MOUSE_EVENT_RECORD {
+        MOUSE_EVENT_RECORD{
+            dwMousePosition: self.mouse_position.into(),
+            dwButtonState: self.button_state.get_state() as u32,
+            dwControlKeyState: self.control_key_state.get_state(),
+            dwEventFlags: self.event_flags as u32
+        }
+    }
+}
+
+impl From<KEY_EVENT_RECORD> for KeyEventRecord {
     #[inline]
-    fn from(record: &KEY_EVENT_RECORD) -> Self {
+    fn from(record: KEY_EVENT_RECORD) -> Self {
         KeyEventRecord {
             key_down: record.bKeyDown != 0,
             repeat_count: record.wRepeatCount,
@@ -275,5 +301,43 @@ impl From<u32> for ButtonState {
     #[inline]
     fn from(state: u32) -> Self {
         ButtonState(state as i32)
+    }
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn key_event_into_test(){
+        let mut key_event : KeyEventRecord = unsafe { std::mem::zeroed() };
+        key_event.control_key_state = ControlKeyState::new(4);
+        key_event.u_char = 'a';
+        key_event.virtual_scan_code = 4;
+        key_event.virtual_key_code = 8;
+        key_event.repeat_count = 16;
+        key_event.virtual_scan_code = 32;
+
+        let raw_key_event : KEY_EVENT_RECORD = key_event.into();
+
+        assert_eq!(key_event.virtual_scan_code, raw_key_event.wVirtualScanCode);
+        assert_eq!(key_event.repeat_count, raw_key_event.wRepeatCount);
+        assert_eq!(key_event.virtual_key_code, raw_key_event.wVirtualKeyCode);
+        assert_eq!(key_event.control_key_state.get_state(), raw_key_event.dwControlKeyState);
+        assert_eq!(key_event.key_down, raw_key_event.bKeyDown != 0);
+        assert_eq!(key_event.u_char, unsafe {
+            char::try_from(*raw_key_event.uChar.UnicodeChar() as u32).unwrap()
+        });
+    }
+
+    #[test]
+    fn mouse_event_into_test(){
+        let mouse_event : MouseEventRecord = unsafe { std::mem::zeroed() };
+        let raw_mouse_event : MOUSE_EVENT_RECORD = mouse_event.into();
+
+        assert_eq!(mouse_event.control_key_state.get_state(), raw_mouse_event.dwControlKeyState);
+        assert_eq!(mouse_event.event_flags as u32, raw_mouse_event.dwEventFlags);
+        assert_eq!(mouse_event.button_state.get_state() as u32, raw_mouse_event.dwButtonState);
+        assert_eq!(mouse_event.mouse_position, Coord::from(raw_mouse_event.dwMousePosition));
     }
 }

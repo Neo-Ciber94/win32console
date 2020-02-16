@@ -88,10 +88,10 @@ use crate::{
     structs::console_selection_info::ConsoleSelectionInfo,
     structs::small_rect::SmallRect
 };
-use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO, GetConsoleDisplayMode, CONSOLE_FULLSCREEN_MODE, CONSOLE_WINDOWED_MODE, SetConsoleDisplayMode, COORD, CONSOLE_FULLSCREEN, CONSOLE_FULLSCREEN_HARDWARE, GetConsoleWindow};
+use winapi::um::wincon::{GetConsoleProcessList, SetConsoleHistoryInfo, CONSOLE_HISTORY_INFO, GetConsoleHistoryInfo, GetConsoleCursorInfo, CONSOLE_CURSOR_INFO, GetConsoleDisplayMode, CONSOLE_FULLSCREEN_MODE, CONSOLE_WINDOWED_MODE, SetConsoleDisplayMode, COORD, CONSOLE_FULLSCREEN, CONSOLE_FULLSCREEN_HARDWARE, GetConsoleWindow, GetConsoleFontSize, ReadConsoleOutputCharacterW, ReadConsoleOutputAttribute, WriteConsoleInputA};
 use crate::structs::console_history_info::ConsoleHistoryInfo;
 use crate::structs::console_cursor_info::ConsoleCursorInfo;
-use winapi::um::winnt::HANDLE;
+use winapi::um::winnt::{HANDLE};
 use winapi::shared::windef::RECT;
 use winapi::um::winuser::{MONITORINFO, GetMonitorInfoA, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY, GetWindowRect};
 use winapi::shared::windef::HWND__;
@@ -1191,9 +1191,9 @@ impl WinConsole {
     ///
     /// # Example
     /// ```
-    /// use win32console::console::{WinConsole};
+    /// use win32console::console::WinConsole;
     ///
-    /// let old_info = WinConsole::output().get_font_info_ex(false).unwrap();
+    /// let old_info = WinConsole::output().get_font_ex(false).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
     /// WinConsole::output().set_font_info_ex(new_info, false).unwrap();
@@ -1207,7 +1207,7 @@ impl WinConsole {
     /// ```
     ///
     /// If changes are not visibles in your current IDE try to execute directly the `.exe` in the folder.
-    pub fn set_font_info_ex(&self, info: ConsoleFontInfoEx, maximum_window: bool) -> Result<()> {
+    pub fn set_font_ex(&self, info: ConsoleFontInfoEx, maximum_window: bool) -> Result<()> {
         let handle = self.get_handle();
         let mut info = info.into();
 
@@ -1231,9 +1231,9 @@ impl WinConsole {
     /// # Example
     /// ```
     /// use win32console::console::{WinConsole};
-    /// let info = WinConsole::output().get_font_info(true).unwrap();
+    /// let info = WinConsole::output().get_font(true).unwrap();
     /// ```
-    pub fn get_font_info(&self, maximum_window: bool) -> Result<ConsoleFontInfo> {
+    pub fn get_font(&self, maximum_window: bool) -> Result<ConsoleFontInfo> {
         let handle = self.get_handle();
 
         unsafe {
@@ -1256,15 +1256,15 @@ impl WinConsole {
     ///
     /// # Example
     /// ```
-    /// use win32console::console::{WinConsole};
+    /// use win32console::console::WinConsole;
     ///
-    /// let old_info = WinConsole::output().get_font_info_ex(false).unwrap();
+    /// let old_info = WinConsole::output().get_font_ex(false).unwrap();
     /// let mut new_info = old_info;
     /// new_info.font_weight = 800; //Bold font
     /// WinConsole::output().set_font_info_ex(new_info, false).unwrap();
     /// WinConsole::output().write_utf8("Hello World".as_bytes()).unwrap();
     /// ```
-    pub fn get_font_info_ex(&self, maximum_window: bool) -> Result<ConsoleFontInfoEx> {
+    pub fn get_font_ex(&self, maximum_window: bool) -> Result<ConsoleFontInfoEx> {
         let handle = self.get_handle();
 
         unsafe {
@@ -1277,6 +1277,35 @@ impl WinConsole {
                 Err(Error::last_os_error())
             } else {
                 Ok(ConsoleFontInfoEx::from(&info))
+            }
+        }
+    }
+
+    /// Retrieves the size of the font used by the specified console screen buffer.
+    ///
+    /// Wraps a call to [GetConsoleFontSize](https://docs.microsoft.com/en-us/windows/console/getconsolefontsize).
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an input handle: `WinConsole::input()`,
+    /// the function should be called using `WinConsole::output()` or a valid output handle.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// let info = WinConsole::output().get_font(false).unwrap();
+    /// let font_size = WinConsole::output().get_font_size(info.font_index).unwrap();
+    /// WinConsole::output().write_utf8(format!("Font size: {}", font_size).as_bytes());
+    /// ```
+    pub fn get_font_size(&self, font_index: u32) -> Result<Coord>{
+        let handle = self.get_handle();
+
+        unsafe{
+            let coord = GetConsoleFontSize(**handle, font_index);
+            if coord.X == 0 && coord.Y == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(Coord::from(coord))
             }
         }
     }
@@ -2007,6 +2036,138 @@ impl WinConsole {
         }
     }
 
+    /// Reads character and color attribute data from a rectangular block of character cells in a console screen buffer,
+    /// and the function writes the data to a rectangular block at a specified location in the destination buffer.
+    ///
+    /// Wraps a call to [ReadConsoleOutputW](https://docs.microsoft.com/en-us/windows/console/readconsoleoutput).
+    pub fn read_output(&self, buffer_size: Coord, buffer_coord: Coord, read_region: &mut SmallRect) -> Result<Vec<CharInfo>>{
+        let handle = self.get_handle();
+        let length = buffer_size.x * buffer_size.y;
+        let mut buffer = vec![unsafe{ std::mem::zeroed::<CHAR_INFO>() }; length as usize];
+        let raw_rect = &mut (*read_region).into();
+
+        unsafe{
+            if ReadConsoleOutputW(
+                **handle,
+                buffer.as_mut_ptr(),
+                buffer_size.into(),
+                buffer_coord.into(),
+                raw_rect) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                let ret = buffer.iter()
+                    .map(|c| (*c).into())
+                    .collect::<Vec<CharInfo>>();
+
+                *read_region = SmallRect::from(*raw_rect);
+                Ok(ret)
+            }
+        }
+    }
+
+    /// Copies a number of characters from consecutive cells of a console screen buffer, beginning at a specified location.
+    ///
+    /// Wraps a call to [ReadConsoleOutputCharacterW](https://docs.microsoft.com/en-us/windows/console/readconsoleoutputcharacter).
+    ///
+    /// # Returns
+    /// The number of characters read.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
+    /// the function should be called using `WinConsole::input()` or a valid input handle.
+    ///
+    /// ```
+    /// use win32console::console::WinConsole;
+    /// use win32console::structs::coord::Coord;
+    ///
+    /// WinConsole::output().clear();
+    ///
+    /// let data = b"Hola Mundo";
+    /// WinConsole::output().write_utf8(data);
+    /// let mut buf = vec![u8::default(); data.len()];
+    /// let chars_read = WinConsole::output().read_output_character(&mut buf, Coord::ZERO).expect("Unable to read");
+    ///
+    /// assert_eq!(chars_read, data.len());
+    /// assert_eq!(data, buf.as_slice());
+    /// ```
+    pub fn read_output_character(&self, buffer: &mut [u8], read_coord: Coord) -> Result<usize>{
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
+        let handle = self.get_handle();
+
+        unsafe{
+            let mut chars_read = 0;
+            let mut utf16_buffer = vec![u16::default(); buffer.len()];
+
+            if ReadConsoleOutputCharacterW(**handle, utf16_buffer.as_mut_ptr(), buffer.len() as u32, read_coord.into(), &mut chars_read) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                WinConsole::utf16_to_utf8(&utf16_buffer, buffer)?;
+                Ok(chars_read as usize)
+            }
+        }
+    }
+
+    /// Copies a specified number of character attributes from consecutive cells of a console screen buffer, beginning at a specified location.
+    ///
+    /// Wraps a call to [ReadConsoleOutputAttribute](https://docs.microsoft.com/en-us/windows/console/readconsoleoutputattribute).
+    ///
+    /// # Returns
+    /// The number of attributes read.
+    ///
+    /// # Errors
+    /// - If the handle is an invalid handle or an output handle: `WinConsole::output()`,
+    /// the function should be called using `WinConsole::input()` or a valid input handle.
+    ///
+    /// # Example
+    /// ```
+    /// use win32console::console::{WinConsole, ConsoleTextAttribute};
+    /// use win32console::structs::console_color::ConsoleColor;
+    /// use win32console::structs::coord::Coord;
+    ///
+    /// fn write_color(data: &str, color: ConsoleColor){
+    ///     let c = WinConsole::output().get_foreground_color().unwrap();
+    ///     WinConsole::output().set_foreground_color(color);
+    ///     WinConsole::output().write_utf8(data.as_bytes());
+    ///     WinConsole::output().set_foreground_color(c);
+    /// }
+    ///
+    /// WinConsole::output().clear();
+    /// write_color("R", ConsoleColor::DarkRed);
+    /// write_color("G", ConsoleColor::DarkGreen);
+    /// write_color("B", ConsoleColor::DarkBlue);
+    ///
+    /// let mut buf = [0u16, 0u16, 0u16];
+    /// let attributes_read = WinConsole::output().read_output_attribute(&mut buf, Coord::ZERO).unwrap();
+    ///
+    /// assert_eq!(3, attributes_read);
+    /// assert_eq!(ConsoleTextAttribute::FOREGROUND_RED, buf[0]);
+    /// assert_eq!(ConsoleTextAttribute::FOREGROUND_GREEN, buf[1]);
+    /// assert_eq!(ConsoleTextAttribute::FOREGROUND_BLUE, buf[2]);
+    /// ```
+    pub fn read_output_attribute(&self, buffer: &mut [u16], read_coord: Coord) -> Result<usize>{
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
+        let handle = self.get_handle();
+
+        unsafe{
+            let mut attributes_read = 0;
+
+            if ReadConsoleOutputAttribute(**handle, buffer.as_mut_ptr(), buffer.len() as u32, read_coord.into(), &mut attributes_read) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(attributes_read as usize)
+            }
+        }
+    }
+
     /// Fills the specified buffer with the unread [`InputRecord`] from the console.
     ///
     /// # Returns
@@ -2360,36 +2521,6 @@ impl WinConsole {
         }
     }
 
-    /// Reads character and color attribute data from a rectangular block of character cells in a console screen buffer,
-    /// and the function writes the data to a rectangular block at a specified location in the destination buffer.
-    ///
-    /// Wraps a call to [ReadConsoleOutputW](https://docs.microsoft.com/en-us/windows/console/readconsoleoutput).
-    pub fn read_char_buffer(&self, buffer_size: Coord, buffer_coord: Coord, read_region: &mut SmallRect) -> Result<Vec<CharInfo>>{
-        let handle = self.get_handle();
-        let length = buffer_size.x * buffer_size.y;
-        let mut buffer = vec![unsafe{ std::mem::zeroed::<CHAR_INFO>() }; length as usize];
-        let raw_rect = &mut (*read_region).into();
-
-        unsafe{
-            if ReadConsoleOutputW(
-                **handle,
-                buffer.as_mut_ptr(),
-                buffer_size.into(),
-                buffer_coord.into(),
-                raw_rect) == 0{
-                Err(Error::last_os_error())
-            }
-            else{
-                let ret = buffer.iter()
-                    .map(|c| (*c).into())
-                    .collect::<Vec<CharInfo>>();
-
-                *read_region = SmallRect::from(*raw_rect);
-                Ok(ret)
-            }
-        }
-    }
-
     /// Flushes the console input buffer. All input records currently in the input buffer are discarded.
     ///
     /// Wraps a call to [FlushConsoleInputBuffer](https://docs.microsoft.com/en-us/windows/console/flushconsoleinputbuffer).
@@ -2582,9 +2713,9 @@ impl WinConsole {
     ///     buffer.push(char_info);
     /// }
     ///
-    /// WinConsole::output().write_char_buffer(buffer.as_ref(), buffer_size, Coord::ZERO, window).unwrap();
+    /// WinConsole::output().write_output(buffer.as_ref(), buffer_size, Coord::ZERO, window).unwrap();
     /// ```
-    pub fn write_char_buffer(
+    pub fn write_output(
         &self,
         buffer: &[CharInfo],
         buffer_size: Coord,
@@ -2615,6 +2746,28 @@ impl WinConsole {
                 Err(Error::last_os_error())
             } else {
                 Ok(())
+            }
+        }
+    }
+
+    pub fn write_input(&self, buffer: &[InputRecord]) -> Result<usize>{
+        if buffer.len() == 0{
+            return Ok(0);
+        }
+
+        let mut buf = buffer.iter()
+            .map(|c| (*c).into())
+            .collect::<Vec<INPUT_RECORD>>();
+
+        let handle = self.get_handle();
+        let mut events_written = 0;
+
+        unsafe{
+            if WriteConsoleInputA(**handle, buf.as_mut_ptr(), buf.len() as u32, &mut events_written) == 0{
+                Err(Error::last_os_error())
+            }
+            else{
+                Ok(events_written as usize)
             }
         }
     }
