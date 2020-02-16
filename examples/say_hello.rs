@@ -1,6 +1,6 @@
 use win32console::console::WinConsole;
-use win32console::structs::input::*;
 use win32console::structs::console_color::ConsoleColor;
+use win32console::input::*;
 
 // Virtual key codes
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes

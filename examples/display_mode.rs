@@ -1,6 +1,5 @@
 use win32console::console::{WinConsole, DisplayMode};
-use winapi::_core::time::Duration;
-use win32console::structs::input::InputRecord::KeyEvent;
+use win32console::input::*;
 
 // Virtual key codes
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
