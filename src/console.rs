@@ -6,7 +6,6 @@ use std::{
     slice,
     str,
     ptr::null_mut,
-    time::Duration
 };
 
 use winapi::{
