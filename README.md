@@ -124,22 +124,22 @@ List of the native methods of `Wincon` implemented in this library:
    WriteConsoleOutputCharacter      | write_output_character        | Copies a number of characters to consecutive cells of a console screen buffer.                                              
 
 Also provides some abstraction as:
-```rust
+```rs
 // Clears the screen
 WinConsole::output().clear();
 
 // Reads a 'String' from the console
-WinConsole::read_string
+WinConsole::input().read_string();
 
 // Sets the foreground color
-WinConsole::set_foreground_color
+WinConsole::output().set_foreground_color(ConsoleColor);
 
 // Sets the background color
-WinConsole::set_background_color
+WinConsole::output().set_background_color(ConsoleColor);
 
 // Gets the foreground color
-WinConsole::get_foreground_color
+WinConsole::output().get_foreground_color();
 
 // Gets the background color
-WinConsole::get_background_color
+WinConsole::output().get_background_color();
 ```
