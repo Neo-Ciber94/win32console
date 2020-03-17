@@ -11,7 +11,7 @@ See: https://docs.microsoft.com/en-us/windows/console/console-functions
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-win32console = "0.1.3"
+win32console = "0.1.4"
 ```
 
 ## Example

@@ -2934,24 +2934,21 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
-    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
-    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    /// let fg = WinConsole::output().get_foreground_color().unwrap();
+    /// let bg = WinConsole::output().get_background_color().unwrap();
     ///
     /// WinConsole::output().set_foreground_color(ConsoleColor::Red);
     /// WinConsole::output().set_background_color(ConsoleColor::Yellow);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     ///
     /// // Restore colors
-    /// WinConsole::output().set_foreground_color(old_fgcolor);
-    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// WinConsole::output().set_foreground_color(fg);
+    /// WinConsole::output().set_background_color(bg);
     /// ```
+    #[inline]
     pub fn get_foreground_color(&self) -> Result<ConsoleColor> {
         let attributes = self.get_text_attribute()?;
-        Ok(
-            ConsoleColor::try_from(attributes & WinConsole::FG_COLOR_MARK)
-                .ok()
-                .expect(format!("Invalid color value: {}", attributes).as_ref()),
-        )
+        Ok(ConsoleColor::try_from(attributes & WinConsole::FG_COLOR_MARK).unwrap())
     }
 
     /// Gets the background color of the console.
@@ -2964,24 +2961,21 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
-    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
-    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    /// let fg = WinConsole::output().get_foreground_color().unwrap();
+    /// let bg = WinConsole::output().get_background_color().unwrap();
     ///
     /// WinConsole::output().set_foreground_color(ConsoleColor::Black);
     /// WinConsole::output().set_background_color(ConsoleColor::White);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     ///
     /// // Restore colors
-    /// WinConsole::output().set_foreground_color(old_fgcolor);
-    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// WinConsole::output().set_foreground_color(fg);
+    /// WinConsole::output().set_background_color(bg);
     /// ```
+    #[inline]
     pub fn get_background_color(&self) -> Result<ConsoleColor> {
-        let attributes = self.get_text_attribute()? << 4;
-        Ok(
-            ConsoleColor::try_from(attributes & WinConsole::BG_COLOR_MASK)
-                .ok()
-                .expect(format!("Invalid color value: {}", attributes).as_ref()),
-        )
+        let attributes = self.get_text_attribute()?;
+        Ok(ConsoleColor::try_from(attributes & WinConsole::BG_COLOR_MASK).unwrap())
     }
 
     /// Sets the foreground color of the console.
@@ -2994,21 +2988,21 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
-    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
-    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    /// let fg = WinConsole::output().get_foreground_color().unwrap();
+    /// let bg = WinConsole::output().get_background_color().unwrap();
     ///
     /// WinConsole::output().set_foreground_color(ConsoleColor::Yellow);
     /// WinConsole::output().set_background_color(ConsoleColor::DarkMagenta);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     ///
     /// // Restore colors
-    /// WinConsole::output().set_foreground_color(old_fgcolor);
-    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// WinConsole::output().set_foreground_color(fg);
+    /// WinConsole::output().set_background_color(bg);
     /// ```
     pub fn set_foreground_color(&self, color: ConsoleColor) -> Result<()> {
         let old_attributes = self.get_text_attribute()?;
-        let new_attributes = (old_attributes & !(old_attributes & WinConsole::FG_COLOR_MARK))
-            | color.as_foreground_color();
+        let new_attributes = (old_attributes
+            & !(old_attributes & WinConsole::FG_COLOR_MARK)) | color.as_foreground_color();
         self.set_text_attribute(new_attributes)
     }
 
@@ -3022,21 +3016,21 @@ impl WinConsole {
     /// ```
     /// use win32console::console::WinConsole;
     /// use win32console::structs::console_color::ConsoleColor;
-    /// let old_fgcolor = WinConsole::output().get_foreground_color().unwrap();
-    /// let old_bgcolor = WinConsole::output().get_background_color().unwrap();
+    /// let fg = WinConsole::output().get_foreground_color().unwrap();
+    /// let bg = WinConsole::output().get_background_color().unwrap();
     ///
     /// WinConsole::output().set_foreground_color(ConsoleColor::DarkBlue);
     /// WinConsole::output().set_background_color(ConsoleColor::Green);
     /// WinConsole::output().write_utf8("Hello World!".as_bytes());
     ///
     /// // Restore colors
-    /// WinConsole::output().set_foreground_color(old_fgcolor);
-    /// WinConsole::output().set_background_color(old_bgcolor);
+    /// WinConsole::output().set_foreground_color(fg);
+    /// WinConsole::output().set_background_color(bg);
     /// ```
     pub fn set_background_color(&self, color: ConsoleColor) -> Result<()> {
         let old_attributes = self.get_text_attribute()?;
-        let new_attributes = (old_attributes & !(old_attributes & WinConsole::BG_COLOR_MASK))
-            | color.as_background_color();
+        let new_attributes = (old_attributes
+            & !(old_attributes & WinConsole::BG_COLOR_MASK)) | color.as_background_color();
         self.set_text_attribute(new_attributes)
     }
 }

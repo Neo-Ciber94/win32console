@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::fmt::{Display, Error, Formatter };
+use std::fmt::{Display, Error, Formatter, Debug};
 
 /// Represents a color for the windows console.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -58,6 +58,11 @@ impl ConsoleColor {
 
 /// Represents an error when parsing a color, and contains the invalid `ConsoleTextAttribute` value.
 pub struct ParseColorError(u16);
+impl Debug for ParseColorError{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid color value: {}", self.0)
+    }
+}
 
 impl TryFrom<u16> for ConsoleColor{
     type Error = ParseColorError;
