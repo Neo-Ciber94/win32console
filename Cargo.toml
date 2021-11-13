@@ -1,6 +1,6 @@
 [package]
 name = "win32console"
-version = "0.1.4"
+version = "0.1.5"
 repository = "https://github.com/Neo-Ciber94/win32console"
 description = "Provides a wrapper to interact with the windows console from rust"
 homepage = "https://crates.io/crates/win32console"
