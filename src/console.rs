@@ -2225,9 +2225,6 @@ impl WinConsole {
             {
                 Err(Error::last_os_error())
             } else {
-                // Documentation specify that at least 1 event will be read.
-                debug_assert!(num_events > 0);
-
                 // Copies each of the read events to the destination buffer
                 for i in 0..num_records {
                     records[i] = buf[i].into()
